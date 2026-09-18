@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { User, LogIn, Eye, EyeOff, AlertCircle, Zap, KeyRound, Check } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import ramakosLogoFull from '../assets/ramakos-logo-full.png';
 
 const DEV_MODE = import.meta.env.DEV;
 
@@ -81,11 +82,13 @@ export const SignIn = () => {
       <div className="w-full max-w-md">
         <div className="bg-card rounded-2xl shadow-xl p-8 border border-border">
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4 shadow-brand">
-              <User className="w-8 h-8 text-primary-foreground" />
-            </div>
-            <h1 className="text-3xl font-bold text-foreground mb-2 tracking-tight">Ramakos</h1>
-            <p className="text-muted-foreground">Sign in to start your shift</p>
+            <img
+              src={ramakosLogoFull}
+              alt="Ramakos Catering Service"
+              className="h-16 w-auto mx-auto mb-3 object-contain"
+            />
+            <h1 className="text-2xl font-bold text-foreground mb-1 tracking-tight">Worker Portal</h1>
+            <p className="text-sm text-muted-foreground">Sign in to start your shift</p>
           </div>
 
           <form onSubmit={handleSignIn} className="space-y-6">

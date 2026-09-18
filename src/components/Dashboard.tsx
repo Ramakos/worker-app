@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { User, DollarSign, LogOut, UtensilsCrossed, Table2, Sparkles, ChevronRight, BarChart3 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import ramakosLogo from '../assets/ramakos-logo.png';
 import { Worker } from '../types';
 import { FloatManager } from './FloatManager';
 import { DashboardSummary } from './DashboardSummary';
@@ -107,13 +108,20 @@ export const Dashboard = () => {
               </div>
             </div>
 
-            <button
-              onClick={signOut}
-              className="p-2.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-all active:scale-95"
-              aria-label="Sign out"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <img
+                src={ramakosLogo}
+                alt="Ramakos"
+                className="h-8 w-auto object-contain shrink-0"
+              />
+              <button
+                onClick={signOut}
+                className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-all active:scale-95"
+                aria-label="Sign out"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
