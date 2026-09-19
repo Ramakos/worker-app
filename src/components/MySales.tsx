@@ -102,7 +102,7 @@ export const MySales = ({ workerId }: MySalesProps) => {
   const prevMonth = () => setHeatmapMonth(new Date(heatmapMonth.getFullYear(), heatmapMonth.getMonth() - 1, 1));
   const nextMonth = () => setHeatmapMonth(new Date(heatmapMonth.getFullYear(), heatmapMonth.getMonth() + 1, 1));
 
-  const monthActiveDays = calendarCells.filter(k => k && heatmapByDate.get(k)?.orderCount > 0).length;
+  const monthActiveDays = calendarCells.filter(k => k && (heatmapByDate.get(k)?.orderCount ?? 0) > 0).length;
   const monthTotalSales = calendarCells
     .filter(k => k)
     .reduce((sum, k) => sum + (heatmapByDate.get(k!)?.totalSales || 0), 0);

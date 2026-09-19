@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, LogIn, Eye, EyeOff, AlertCircle, Zap, KeyRound, Check } from 'lucide-react';
+import { LogIn, Eye, EyeOff, AlertCircle, Zap, KeyRound, Check } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import ramakosLogoFull from '../assets/ramakos-logo-full.png';
 

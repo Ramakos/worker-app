@@ -21,32 +21,34 @@ export const OrderTracker = ({ workerId, workerRole }: OrderTrackerProps) => {
   const getStatusIcon = (status: Order['status']) => {
     switch (status) {
       case 'pending': return <Clock className="w-4 h-4" />;
-      case 'preparing': return <ChefHat className="w-4 h-4" />;
+      case 'in_kitchen': return <ChefHat className="w-4 h-4" />;
       case 'ready': return <CheckCircle className="w-4 h-4" />;
       case 'served': return <Truck className="w-4 h-4" />;
+      default: return <Clock className="w-4 h-4" />;
     }
   };
 
   const getStatusColor = (status: Order['status']) => {
     switch (status) {
       case 'pending': return 'text-muted-foreground bg-muted';
-      case 'preparing': return 'text-secondary-foreground bg-secondary';
+      case 'in_kitchen': return 'text-secondary-foreground bg-secondary';
       case 'ready': return 'text-secondary-foreground bg-accent';
       case 'served': return 'text-muted-foreground bg-muted';
+      default: return 'text-muted-foreground bg-muted';
     }
   };
 
   const canUpdateStatus = (order: Order) => {
     if (workerRole === 'manager') return true;
-    if (workerRole === 'cook') return order.status === 'pending' || order.status === 'preparing';
+    if (workerRole === 'cook') return order.status === 'pending' || order.status === 'in_kitchen';
     if (workerRole === 'server') return order.claimed_by === workerId && (order.status === 'ready' || order.status === 'served');
     return false;
   };
 
-  const getNextStatus = (currentStatus: Order['status']) => {
+  const getNextStatus = (currentStatus: Order['status']): Order['status'] => {
     switch (currentStatus) {
-      case 'pending': return 'preparing';
-      case 'preparing': return 'ready';
+      case 'pending': return 'in_kitchen';
+      case 'in_kitchen': return 'ready';
       case 'ready': return 'served';
       default: return currentStatus;
     }
