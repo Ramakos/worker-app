@@ -38,53 +38,53 @@ export const DashboardSummary = ({ workerId }: DashboardSummaryProps) => {
   const activeOrders = personalOrders.filter(o => o.status !== 'served').length;
 
   return (
-    <div className="bg-card rounded-xl shadow-sm p-4 mb-4 border border-border">
-      <h3 className="text-sm font-medium text-muted-foreground mb-3">Shift Summary</h3>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
-            <Clock className="w-5 h-5 text-primary" />
+    <div className="bg-card rounded-2xl shadow-sm p-3.5 sm:p-4 mb-3 sm:mb-4 border border-border">
+      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">Current Shift Summary</h3>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+        <div className="flex items-center space-x-2.5 sm:space-x-3 bg-muted/40 p-2.5 rounded-xl">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-secondary rounded-lg flex items-center justify-center shrink-0">
+            <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Duration</p>
-            <p className="text-lg font-semibold text-foreground">{shiftDuration}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
-            <CheckCircle className="w-5 h-5 text-secondary-foreground" />
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Served</p>
-            <p className="text-lg font-semibold text-foreground">{servedOrders}</p>
+          <div className="min-w-0">
+            <p className="text-[11px] text-muted-foreground">Duration</p>
+            <p className="text-sm sm:text-base font-bold text-foreground truncate">{shiftDuration}</p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
-            <ClipboardList className="w-5 h-5 text-primary" />
+        <div className="flex items-center space-x-2.5 sm:space-x-3 bg-muted/40 p-2.5 rounded-xl">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-accent rounded-lg flex items-center justify-center shrink-0">
+            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-secondary-foreground" />
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Active</p>
-            <p className="text-lg font-semibold text-foreground">{activeOrders}</p>
+          <div className="min-w-0">
+            <p className="text-[11px] text-muted-foreground">Served</p>
+            <p className="text-sm sm:text-base font-bold text-foreground">{servedOrders}</p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-3">
-          <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+        <div className="flex items-center space-x-2.5 sm:space-x-3 bg-muted/40 p-2.5 rounded-xl">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-secondary rounded-lg flex items-center justify-center shrink-0">
+            <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] text-muted-foreground">Active</p>
+            <p className="text-sm sm:text-base font-bold text-foreground">{activeOrders}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2.5 sm:space-x-3 bg-muted/40 p-2.5 rounded-xl">
+          <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center shrink-0 ${
             netFloat > 0 ? 'bg-accent' : 'bg-muted'
           }`}>
-            <DollarSign className={`w-5 h-5 ${
+            <DollarSign className={`w-4 h-4 sm:w-5 sm:h-5 ${
               netFloat > 0 ? 'text-primary' : 'text-muted-foreground'
             }`} />
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Net Float</p>
-            <p className={`text-lg font-semibold ${
+          <div className="min-w-0">
+            <p className="text-[11px] text-muted-foreground">Net Float</p>
+            <p className={`text-sm sm:text-base font-bold truncate ${
               netFloat > 0 ? 'text-secondary-foreground' : 'text-foreground'
             }`}>
-              ${netFloat.toFixed(2)}
+              GH₵ {netFloat.toFixed(2)}
             </p>
           </div>
         </div>

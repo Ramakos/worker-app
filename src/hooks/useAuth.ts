@@ -67,17 +67,6 @@ export const useAuth = () => {
         return { error: 'Worker not found' };
       }
 
-      const { data: existingShift } = await supabase
-        .from('worker_shifts')
-        .select('*')
-        .eq('user_id', worker.id)
-        .eq('active', true)
-        .maybeSingle();
-
-      if (existingShift) {
-        return { error: 'You already have an active shift. Please end your current shift first.' };
-      }
-
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: worker.username,
         password: password,
@@ -107,20 +96,30 @@ export const useAuth = () => {
         return { error: 'Your account is inactive. Please contact a manager.' };
       }
 
-      const { error: shiftError } = await supabase
+      // Check if shift already exists, resume if active, start if not
+      const { data: existingShift } = await supabase
         .from('worker_shifts')
-        .insert({
-          user_id: worker.id,
-          started_at: new Date().toISOString(),
-          active: true,
-        });
+        .select('*')
+        .eq('user_id', worker.id)
+        .eq('active', true)
+        .maybeSingle();
 
-      if (shiftError) {
-        console.error('Shift creation error:', shiftError);
-        return { error: 'Failed to start shift. Please try again.' };
+      if (!existingShift) {
+        const { error: shiftError } = await supabase
+          .from('worker_shifts')
+          .insert({
+            user_id: worker.id,
+            started_at: new Date().toISOString(),
+            active: true,
+          });
+
+        if (shiftError) {
+          console.error('Shift creation error:', shiftError);
+          return { error: 'Failed to start shift. Please try again.' };
+        }
       }
 
-      const activeWorker = { ...worker, is_active: true };
+      const activeWorker = { ...worker, is_active: true, auth_method: 'password' as const };
       setCurrentWorker(activeWorker);
       localStorage.setItem('currentWorker', JSON.stringify(activeWorker));
 
@@ -153,7 +152,7 @@ export const useAuth = () => {
         return { error: 'Invalid PIN. Please try again or sign in with your password.' };
       }
 
-      // Check if shift already exists
+      // Check if shift already exists, resume if active, start if not
       const { data: existingShift } = await supabase
         .from('worker_shifts')
         .select('*')
@@ -176,7 +175,7 @@ export const useAuth = () => {
         }
       }
 
-      const activeWorker = { ...worker, is_active: true };
+      const activeWorker = { ...worker, is_active: true, auth_method: 'pin' as const };
       setCurrentWorker(activeWorker);
       localStorage.setItem('currentWorker', JSON.stringify(activeWorker));
 
@@ -209,23 +208,7 @@ export const useAuth = () => {
   const signOut = async () => {
     if (currentWorker && !devModeRef.current) {
       try {
-        const { error: shiftError } = await supabase
-          .from('worker_shifts')
-          .update({
-            ended_at: new Date().toISOString(),
-            active: false
-          })
-          .eq('user_id', currentWorker.id)
-          .eq('active', true);
-
-        if (shiftError) {
-          console.error('Error ending shift:', shiftError);
-        }
-
-        const { error: authError } = await supabase.auth.signOut();
-        if (authError) {
-          console.error('Error signing out:', authError);
-        }
+        await supabase.auth.signOut();
       } catch (error) {
         console.error('Error during sign out:', error);
       }
@@ -251,26 +234,55 @@ export const useAuth = () => {
     fetchWorkers();
 
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const stored = localStorage.getItem('currentWorker');
+      if (!stored) return;
 
-      if (session?.user) {
-        const stored = localStorage.getItem('currentWorker');
-        if (stored) {
-          const worker = JSON.parse(stored);
-          if (worker.id === session.user.id) {
+      try {
+        const worker = JSON.parse(stored);
+        if (worker.auth_method === 'pin') {
+          // Verify worker is still active
+          const { data, error } = await supabase
+            .from('user_profiles')
+            .select('is_active')
+            .eq('id', worker.id)
+            .maybeSingle();
+
+          if (!error && data?.is_active) {
             setCurrentWorker(worker);
           } else {
             localStorage.removeItem('currentWorker');
+            setCurrentWorker(null);
           }
+          return;
         }
-      } else {
+
+        // For password logins, check Supabase session
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user && session.user.id === worker.id) {
+          setCurrentWorker(worker);
+        } else {
+          localStorage.removeItem('currentWorker');
+          setCurrentWorker(null);
+        }
+      } catch {
         localStorage.removeItem('currentWorker');
+        setCurrentWorker(null);
       }
     };
 
     checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const stored = localStorage.getItem('currentWorker');
+      if (stored) {
+        try {
+          const worker = JSON.parse(stored);
+          if (worker.auth_method === 'pin') {
+            return;
+          }
+        } catch {}
+      }
+
       if (!session && !devModeRef.current) {
         setCurrentWorker(null);
         localStorage.removeItem('currentWorker');

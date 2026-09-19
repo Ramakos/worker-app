@@ -202,14 +202,14 @@ export const ActiveTables = () => {
             onChange={(e) => setNewTable(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddTable()}
             placeholder="Add table (e.g. Table 4)"
-            className="input flex-1 bg-muted/50 border-border"
+            className="input flex-1 bg-muted/50 border-border h-11 text-sm"
           />
           <button
             onClick={handleAddTable}
             disabled={!newTable.trim()}
-            className="btn btn-primary px-4 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed haptic"
+            className="btn btn-primary px-4 py-2.5 h-11 text-sm disabled:opacity-40 disabled:cursor-not-allowed shrink-0 haptic"
           >
-            Add
+            Add Table
           </button>
         </div>
       </div>

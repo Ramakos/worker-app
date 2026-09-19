@@ -105,7 +105,7 @@ export const SignIn = () => {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                   {workers.map(worker => (
                   <label
                     key={worker.id}
@@ -170,10 +170,13 @@ export const SignIn = () => {
                   <div className="space-y-2">
                     <input
                       type="password"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      autoComplete="one-time-code"
                       maxLength={6}
                       value={pin}
                       onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                      className="input text-center tracking-[1em] text-xl font-bold font-mono"
+                      className="input text-center tracking-[1em] text-xl font-bold font-mono h-12"
                       placeholder="••••"
                       autoFocus
                     />
@@ -269,11 +272,14 @@ export const SignIn = () => {
                 <div>
                   <input
                     type="password"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    autoComplete="one-time-code"
                     maxLength={6}
                     value={newPin}
                     onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
                     placeholder="Enter 4-6 digits"
-                    className="input text-center tracking-[1em] text-xl font-bold font-mono"
+                    className="input text-center tracking-[1em] text-xl font-bold font-mono h-12"
                     autoFocus
                   />
                 </div>

@@ -37,8 +37,10 @@ export const useOrders = (workerId?: string) => {
   };
 
   const mapOrderStatus = (status: string): 'pending' | 'preparing' | 'ready' | 'served' => {
+    if (!status) return 'pending';
     switch (status.toLowerCase()) {
       case 'pending': return 'pending';
+      case 'in_kitchen':
       case 'preparing': return 'preparing';
       case 'ready': return 'ready';
       case 'served': 

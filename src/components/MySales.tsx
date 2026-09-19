@@ -241,14 +241,14 @@ export const MySales = ({ workerId }: MySalesProps) => {
         </div>
 
         {/* Weekday labels */}
-        <div className="grid grid-cols-7 gap-1.5 mb-1.5">
+        <div className="grid grid-cols-7 gap-1 sm:gap-1.5 mb-1.5">
           {WEEKDAY_LABELS.map((label, i) => (
             <div key={i} className="text-center text-[10px] text-muted-foreground font-medium">{label}</div>
           ))}
         </div>
 
         {/* Calendar grid */}
-        <div className="grid grid-cols-7 gap-1.5">
+        <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
           {calendarCells.map((dayKey, idx) => {
             if (!dayKey) {
               return <div key={`empty-${idx}`} className="aspect-square" />;
@@ -257,6 +257,7 @@ export const MySales = ({ workerId }: MySalesProps) => {
             const colorClass = getHeatmapColor(dayKey);
             const dayData = heatmapByDate.get(dayKey);
             const today = isToday(dayKey);
+            const hasActivity = Boolean(dayData && dayData.intensity > 0);
 
             return (
               <div
@@ -264,7 +265,7 @@ export const MySales = ({ workerId }: MySalesProps) => {
                 className={`aspect-square rounded-lg flex flex-col items-center justify-center text-[10px] transition-all ${colorClass} ${today ? 'ring-1 ring-primary ring-offset-1' : ''}`}
                 title={dayData ? `${dayData.orderCount} orders · GHS ${dayData.totalSales.toFixed(2)}` : 'No activity'}
               >
-                <span className={dayData ? 'font-bold text-primary-foreground' : 'text-muted-foreground'}>
+                <span className={hasActivity ? 'font-bold text-primary-foreground' : 'text-foreground/80'}>
                   {dayNum}
                 </span>
               </div>

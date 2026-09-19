@@ -6,6 +6,7 @@ export interface Worker {
   role: 'admin' | 'counter_worker' | 'general_worker' | 'kitchen_staff';
   is_active: boolean;
   has_pin?: boolean;
+  auth_method?: 'password' | 'pin';
 }
 
 export interface WorkerShift {

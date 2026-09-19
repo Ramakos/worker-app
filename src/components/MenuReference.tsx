@@ -216,7 +216,7 @@ export const MenuReference = ({ onAddToTable }: { onAddToTable?: (item: { name: 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search items..."
-            className="input pl-10 bg-muted/50 border-border"
+            className="input pl-10 bg-muted/50 border-border h-11 text-sm"
           />
         </div>
       </div>

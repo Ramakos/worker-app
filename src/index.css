@@ -355,13 +355,19 @@
     transform: scale(0.97);
   }
 
-  .hide-scrollbar {
+  .hide-scrollbar,
+  .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
 
-  .hide-scrollbar::-webkit-scrollbar {
+  .hide-scrollbar::-webkit-scrollbar,
+  .no-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 }
 
