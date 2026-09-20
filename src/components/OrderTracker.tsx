@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ClipboardList, Clock, ChefHat, CheckCircle, Truck, Users, RefreshCw, UserCheck } from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
+import { useToast } from './Toast';
 import { Order } from '../types';
 
 interface OrderTrackerProps {
@@ -11,6 +12,36 @@ interface OrderTrackerProps {
 export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
   const [activeView, setActiveView] = useState<'all' | 'personal'>('all');
   const { allOrders, personalOrders, isLoading, updateOrderStatus, assignOrder, refreshOrders } = useOrders(workerId);
+  const { toast } = useToast();
+
+  const handleRefresh = async () => {
+    await refreshOrders();
+    toast.info('Orders Refreshed', 'Synced with live kitchen queue');
+  };
+
+  const handleClaim = async (orderId: number, orderNumber?: string | number) => {
+    if (!workerId) return;
+    const res = await assignOrder(orderId, workerId);
+    if (res?.success) {
+      toast.success('Order Claimed', `Order #${orderNumber || orderId} is now assigned to you.`);
+    } else {
+      toast.error('Claim Failed', res?.error || 'Could not claim this order.');
+    }
+  };
+
+  const handleAdvanceStatus = async (orderId: number, currentStatus: Order['status'], orderNumber?: string | number) => {
+    const nextStatus = getNextStatus(currentStatus);
+    const label = getNextStatusLabel(currentStatus);
+    const res = await updateOrderStatus(orderId, nextStatus);
+    if (res?.success) {
+      toast.success(
+        nextStatus === 'served' ? 'Order Served!' : `Order Advanced: ${nextStatus.toUpperCase()}`,
+        `Order #${orderNumber || orderId} marked as ${nextStatus}.`
+      );
+    } else {
+      toast.error('Update Failed', res?.error || `Could not update to ${label}.`);
+    }
+  };
 
   const orders = activeView === 'all' ? allOrders : personalOrders;
 
@@ -85,7 +116,7 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
               </div>
             </div>
             <button
-              onClick={refreshOrders}
+              onClick={handleRefresh}
               disabled={isLoading}
               className="sm:hidden p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-colors disabled:opacity-50 haptic"
               aria-label="Refresh orders"
@@ -96,7 +127,7 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={refreshOrders}
+              onClick={handleRefresh}
               disabled={isLoading}
               className="hidden sm:flex p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-colors disabled:opacity-50 haptic"
               aria-label="Refresh orders"
@@ -231,7 +262,7 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
                     <div className="flex items-center gap-2">
                       {!order.claimed_by && (
                         <button
-                          onClick={() => workerId && assignOrder(order.id, workerId)}
+                          onClick={() => handleClaim(order.id, order.order_number)}
                           className="flex-1 sm:flex-none px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-xl text-xs font-semibold transition-all haptic"
                         >
                           Claim
@@ -240,7 +271,7 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
 
                       {order.status !== 'served' && order.status !== 'delivered' && (
                         <button
-                          onClick={() => updateOrderStatus(order.id, getNextStatus(order.status))}
+                          onClick={() => handleAdvanceStatus(order.id, order.status, order.order_number)}
                           className="flex-1 sm:flex-none px-3.5 py-1.5 bg-primary hover:bg-brand-dark text-primary-foreground rounded-xl text-xs font-semibold shadow-sm transition-all haptic"
                         >
                           {getNextStatusLabel(order.status)}

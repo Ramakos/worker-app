@@ -26,31 +26,41 @@ export const useAuth = () => {
 
   const fetchWorkers = async () => {
     try {
-      const { data, error } = await supabase
+      // 1. Fetch active worker profiles
+      const { data: profiles, error: profileError } = await supabase
         .from('user_profiles')
-        .select(`
-          id,
-          full_name,
-          username,
-          worker_id,
-          is_active,
-          pin,
-          user_roles (
-            role
-          )
-        `)
+        .select('id, full_name, username, worker_id, is_active, pin')
         .eq('is_active', true);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
 
-      const workersData = data?.map(user => ({
+      // 2. Query user_roles separately (to avoid missing FK relationship error PGRST200)
+      const rolesMap: Record<string, string> = {};
+      try {
+        const { data: rolesData } = await supabase
+          .from('user_roles')
+          .select('user_id, role');
+
+        if (rolesData) {
+          rolesData.forEach((r: any) => {
+            if (r.user_id && r.role) {
+              rolesMap[r.user_id] = r.role;
+            }
+          });
+        }
+      } catch (rolesErr) {
+        console.warn('Could not fetch user_roles (falling back to general_worker):', rolesErr);
+      }
+
+      // 3. Combine profiles and roles
+      const workersData = profiles?.map(user => ({
         id: user.id,
         full_name: user.full_name || user.username,
         username: user.username,
         worker_id: user.worker_id,
-        role: (user.user_roles as any)?.[0]?.role || 'general_worker',
-        is_active: user.is_active || false,
-        has_pin: Boolean((user as any).pin),
+        role: (rolesMap[user.id] || 'general_worker') as any,
+        is_active: user.is_active !== false,
+        has_pin: Boolean(user.pin),
       })) || [];
 
       setWorkers(workersData);

@@ -1,8 +1,9 @@
 import { Dashboard } from './components/Dashboard';
 import { SignIn } from './components/SignIn';
+import { ToastProvider } from './components/Toast';
 import { useAuth } from './hooks/useAuth';
 
-function App() {
+function AppContent() {
   const { currentWorker } = useAuth();
 
   if (!currentWorker) {
@@ -10,6 +11,14 @@ function App() {
   }
 
   return <Dashboard />;
+}
+
+function App() {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
+  );
 }
 
 export default App;

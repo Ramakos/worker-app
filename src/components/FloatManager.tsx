@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { DollarSign, ArrowUpCircle, ArrowDownCircle, Clock, History, TrendingUp, TrendingDown } from 'lucide-react';
 import { useFloat } from '../hooks/useFloat';
+import { useToast } from './Toast';
 
 interface FloatManagerProps {
   workerId?: string;
@@ -10,6 +11,7 @@ export const FloatManager = ({ workerId }: FloatManagerProps) => {
   const [floatAmount, setFloatAmount] = useState('');
   const [returnAmount, setReturnAmount] = useState('');
   const [error, setError] = useState('');
+  const { toast } = useToast();
   const {
     currentShift,
     floatTransactions,
@@ -28,16 +30,21 @@ export const FloatManager = ({ workerId }: FloatManagerProps) => {
     setError('');
     const amount = parseFloat(floatAmount);
 
-    if (amount <= 0) {
-      setError('Amount must be greater than zero');
+    if (isNaN(amount) || amount <= 0) {
+      const msg = 'Amount must be greater than zero';
+      setError(msg);
+      toast.warning('Invalid Amount', msg);
       return;
     }
 
     const result = await takeFloat(amount);
     if (result.success) {
       setFloatAmount('');
+      toast.success('Float Taken', `GH₵ ${amount.toFixed(2)} recorded for your active shift.`);
     } else {
-      setError(result.error || 'Failed to take float');
+      const msg = result.error || 'Failed to take float';
+      setError(msg);
+      toast.error('Float Failed', msg);
     }
   };
 
@@ -46,24 +53,33 @@ export const FloatManager = ({ workerId }: FloatManagerProps) => {
     setError('');
     const amount = parseFloat(returnAmount);
 
-    if (amount <= 0) {
-      setError('Amount must be greater than zero');
+    if (isNaN(amount) || amount <= 0) {
+      const msg = 'Amount must be greater than zero';
+      setError(msg);
+      toast.warning('Invalid Amount', msg);
       return;
     }
 
     const result = await returnFloat(amount);
     if (result.success) {
       setReturnAmount('');
+      toast.success('Float Returned', `GH₵ ${amount.toFixed(2)} recorded.`);
     } else {
-      setError(result.error || 'Failed to return float');
+      const msg = result.error || 'Failed to return float';
+      setError(msg);
+      toast.error('Return Failed', msg);
     }
   };
 
   const handleEndShift = async () => {
     setError('');
     const result = await endShift();
-    if (!result.success) {
-      setError(result.error || 'Failed to end shift');
+    if (result.success) {
+      toast.success('Shift Ended', 'Your shift reconciliation has been closed.');
+    } else {
+      const msg = result.error || 'Failed to end shift';
+      setError(msg);
+      toast.error('End Shift Failed', msg);
     }
   };
 

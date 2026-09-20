@@ -111,8 +111,10 @@ export const useOrders = (workerId?: string) => {
       setOrders(prev => prev.map(order =>
         order.id === orderId ? { ...order, status, ready_at: updateData.ready_at || order.ready_at } : order
       ));
-    } catch (error) {
+      return { success: true };
+    } catch (error: any) {
       console.error('Error updating order status:', error);
+      return { success: false, error: error.message || 'Failed to update order status' };
     }
   };
 
@@ -137,8 +139,10 @@ export const useOrders = (workerId?: string) => {
           claimed_at: new Date().toISOString()
         } : order
       ));
-    } catch (error) {
+      return { success: true };
+    } catch (error: any) {
       console.error('Error claiming order:', error);
+      return { success: false, error: error.message || 'Failed to claim order' };
     }
   };
 

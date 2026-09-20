@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LogIn, Eye, EyeOff, AlertCircle, Zap, KeyRound, Check } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useToast } from './Toast';
 import ramakosLogoFull from '../assets/ramakos-logo-full.png';
 
 const DEV_MODE = import.meta.env.DEV;
@@ -15,6 +16,7 @@ export const SignIn = () => {
   const [pendingPinSetupWorkerId, setPendingPinSetupWorkerId] = useState<string | null>(null);
   const [newPin, setNewPin] = useState('');
   const [pinSuccessMsg, setPinSuccessMsg] = useState('');
+  const { toast } = useToast();
 
   const { signIn, signInWithPin, setWorkerPin, isLoading, devSignIn, workers } = useAuth();
 
@@ -42,35 +44,56 @@ export const SignIn = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedWorker) return;
+    if (!selectedWorker) {
+      toast.warning('Select Worker', 'Please select your name from the staff list.');
+      return;
+    }
 
     setError('');
 
     if (authMode === 'pin') {
-      if (!pin) return;
+      if (!pin) {
+        toast.warning('Enter PIN', 'Please enter your 4-digit staff PIN.');
+        return;
+      }
       const result = await signInWithPin(selectedWorker, pin);
       if (result?.error) {
         setError(result.error);
+        toast.error('Sign-in Failed', result.error);
+      } else {
+        toast.success('Welcome Back!', `Signed in as ${selectedWorkerObj?.full_name || 'Staff'}`);
       }
     } else {
-      if (!password) return;
+      if (!password) {
+        toast.warning('Enter Password', 'Please enter your account password.');
+        return;
+      }
       const result = await signIn(selectedWorker, password);
       if (result?.error) {
         setError(result.error);
+        toast.error('Sign-in Failed', result.error);
       } else if (result?.success && !selectedWorkerObj?.has_pin) {
         // Prompt for PIN setup
         setPendingPinSetupWorkerId(selectedWorker);
+        toast.info('Quick Setup', 'Set a 4-digit PIN for instant access on future shifts.');
+      } else {
+        toast.success('Welcome Back!', `Signed in as ${selectedWorkerObj?.full_name || 'Staff'}`);
       }
     }
   };
 
   const handleSavePin = async () => {
-    if (!pendingPinSetupWorkerId || newPin.length < 4) return;
+    if (!pendingPinSetupWorkerId || newPin.length < 4) {
+      toast.warning('Invalid PIN', 'PIN must be at least 4 digits.');
+      return;
+    }
     const res = await setWorkerPin(pendingPinSetupWorkerId, newPin);
     if (res?.error) {
       setError(res.error);
+      toast.error('Setup Failed', res.error);
     } else {
       setPinSuccessMsg('PIN linked successfully!');
+      toast.success('PIN Configured', 'Your 4-digit PIN is active for quick sign-in.');
       setTimeout(() => {
         setPendingPinSetupWorkerId(null);
       }, 1000);

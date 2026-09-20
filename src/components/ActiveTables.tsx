@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Plus, Trash2, ChevronDown, Undo, RotateCcw, Minus, Hash, Receipt, Clock, CreditCard as Edit3, Check, Eye, Printer, AlertTriangle } from 'lucide-react';
+import { useToast } from './Toast';
 
 export interface TableLineItem {
   id: string;
@@ -21,6 +22,7 @@ const STORAGE_KEY = 'activeTables';
 type ConfirmAction = 'undo' | 'clear' | 'clearAll' | 'deleteTable' | null;
 
 export const ActiveTables = () => {
+  const toast = useToast();
   const [tables, setTables] = useState<TableOrder[]>([]);
   const [newTable, setNewTable] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -58,9 +60,10 @@ export const ActiveTables = () => {
 
   const handleAddTable = () => {
     if (!newTable.trim()) return;
+    const name = newTable.trim();
     const table: TableOrder = {
       id: Date.now().toString(),
-      tableName: newTable.trim(),
+      tableName: name,
       items: [],
       notes: '',
       timestamp: Date.now(),
@@ -70,32 +73,47 @@ export const ActiveTables = () => {
     setExpandedId(table.id);
     setJustAddedId(table.id);
     setTimeout(() => setJustAddedId(null), 600);
+    toast.success('Table Added', `${name} is ready for order taking`);
   };
 
   const handleDeleteTable = (id: string) => {
+    const table = tables.find(t => t.id !== id ? null : t);
+    const tableName = table ? table.tableName : 'Table';
     setTables(tables.filter(t => t.id !== id));
     if (expandedId === id) setExpandedId(null);
+    toast.info('Table Closed', `${tableName} has been removed`);
   };
 
   const handleClearAll = () => {
+    const count = tables.length;
     setTables([]);
     setExpandedId(null);
+    toast.warning('Tables Reset', `Cleared ${count} active table${count !== 1 ? 's' : ''}`);
   };
 
   const handleAddItem = (tableId: string) => {
     const price = parseFloat(newItemPrice);
-    if (!newItemName.trim() || isNaN(price) || price < 0) return;
+    if (!newItemName.trim() || isNaN(price) || price < 0) {
+      toast.error('Invalid Item', 'Please enter a valid item name and price');
+      return;
+    }
+
+    const itemName = newItemName.trim();
+    const qty = newItemQty;
+    const targetTable = tables.find(t => t.id === tableId);
 
     setTables(tables.map(t => {
       if (t.id !== tableId) return t;
       const newItem: TableLineItem = {
         id: Date.now().toString(),
-        name: newItemName.trim(),
+        name: itemName,
         price,
-        quantity: newItemQty,
+        quantity: qty,
       };
       return { ...t, items: [...t.items, newItem] };
     }));
+
+    toast.success('Item Added', `${qty}x ${itemName} (GHS ${(price * qty).toFixed(2)}) ${targetTable ? `to ${targetTable.tableName}` : ''}`);
 
     setNewItemName('');
     setNewItemPrice('');
@@ -103,26 +121,38 @@ export const ActiveTables = () => {
   };
 
   const handleRemoveItem = (tableId: string, itemId: string) => {
+    const targetTable = tables.find(t => t.id === tableId);
+    const item = targetTable?.items.find(i => i.id === itemId);
     setTables(tables.map(t => {
       if (t.id !== tableId) return t;
       return { ...t, items: t.items.filter(i => i.id !== itemId) };
     }));
+    if (item) {
+      toast.info('Item Removed', `Removed ${item.name} from ${targetTable?.tableName || 'table'}`);
+    }
   };
 
   const handleUndoLastItem = (tableId: string) => {
+    const targetTable = tables.find(t => t.id === tableId);
+    const lastItem = targetTable?.items[targetTable.items.length - 1];
     setTables(tables.map(t => {
       if (t.id !== tableId) return t;
       const items = [...t.items];
       items.pop();
       return { ...t, items };
     }));
+    if (lastItem) {
+      toast.info('Item Undone', `Removed last added: ${lastItem.name}`);
+    }
   };
 
   const handleClearItems = (tableId: string) => {
+    const targetTable = tables.find(t => t.id === tableId);
     setTables(tables.map(t => {
       if (t.id !== tableId) return t;
       return { ...t, items: [] };
     }));
+    toast.warning('Items Cleared', `Cleared all items for ${targetTable?.tableName || 'table'}`);
   };
 
   const handleUpdateQuantity = (tableId: string, itemId: string, delta: number) => {
@@ -142,6 +172,7 @@ export const ActiveTables = () => {
   const handleUpdateNotes = (tableId: string, notes: string) => {
     setTables(tables.map(t => t.id === tableId ? { ...t, notes } : t));
     setEditingNotesId(null);
+    toast.success('Notes Updated', notes ? 'Special table instructions saved' : 'Table instructions cleared');
   };
 
   const getTimeSince = (timestamp: number): string => {
@@ -594,7 +625,10 @@ export const ActiveTables = () => {
             {/* Footer Actions */}
             <div className="sticky bottom-0 bg-card px-5 py-4 border-t border-border flex gap-2 safe-bottom">
               <button
-                onClick={() => window.print()}
+                onClick={() => {
+                  toast.info('Printing Receipt', `Sending ${summaryTable.tableName} summary to printer`);
+                  window.print();
+                }}
                 className="flex-1 btn btn-outline py-2.5 text-sm haptic"
               >
                 <Printer className="w-4 h-4" />
