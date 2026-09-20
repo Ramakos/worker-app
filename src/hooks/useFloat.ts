@@ -1,10 +1,28 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { WorkerShift, FloatTransaction } from '../types';
+import { recordWorkerActivity } from '../lib/workerActivity';
 
 export const useFloat = (workerId?: string) => {
-  const [currentShift, setCurrentShift] = useState<WorkerShift | null>(null);
-  const [floatTransactions, setFloatTransactions] = useState<FloatTransaction[]>([]);
+  // Synchronously hydrate current shift and float transactions from localStorage
+  const [currentShift, setCurrentShift] = useState<WorkerShift | null>(() => {
+    if (!workerId) return null;
+    try {
+      const cached = localStorage.getItem(`active_shift_${workerId}`);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return null;
+  });
+
+  const [floatTransactions, setFloatTransactions] = useState<FloatTransaction[]>(() => {
+    if (!workerId) return [];
+    try {
+      const cached = localStorage.getItem(`float_txs_${workerId}`);
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
+
   const [shiftHistory, setShiftHistory] = useState<WorkerShift[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -24,9 +42,13 @@ export const useFloat = (workerId?: string) => {
       if (error) throw error;
 
       setCurrentShift(data || null);
-
       if (data) {
+        try {
+          localStorage.setItem(`active_shift_${workerId}`, JSON.stringify(data));
+        } catch {}
         await fetchFloatTransactions(data.id);
+      } else {
+        localStorage.removeItem(`active_shift_${workerId}`);
       }
     } catch (error) {
       console.error('Error fetching current shift:', error);
@@ -43,7 +65,13 @@ export const useFloat = (workerId?: string) => {
 
       if (error) throw error;
 
-      setFloatTransactions(data || []);
+      const txs = data || [];
+      setFloatTransactions(txs);
+      if (workerId) {
+        try {
+          localStorage.setItem(`float_txs_${workerId}`, JSON.stringify(txs));
+        } catch {}
+      }
     } catch (error) {
       console.error('Error fetching float transactions:', error);
     }
@@ -109,6 +137,14 @@ export const useFloat = (workerId?: string) => {
       await fetchCurrentShift();
       await fetchShiftHistory();
 
+      // Record activity locally
+      recordWorkerActivity(workerId, {
+        type: 'float_taken',
+        title: `Float Taken: GH₵ ${amount.toFixed(2)}`,
+        details: `Shift float updated to GH₵ ${newTotal.toFixed(2)}`,
+        amount,
+      });
+
       return { success: true };
     } catch (error) {
       console.error('Error taking float:', error);
@@ -152,6 +188,14 @@ export const useFloat = (workerId?: string) => {
       await fetchCurrentShift();
       await fetchShiftHistory();
 
+      // Record activity locally
+      recordWorkerActivity(workerId, {
+        type: 'float_returned',
+        title: `Float Returned: GH₵ ${amount.toFixed(2)}`,
+        details: `Total returned: GH₵ ${newTotalReturned.toFixed(2)}`,
+        amount,
+      });
+
       return { success: true };
     } catch (error) {
       console.error('Error returning float:', error);
@@ -185,6 +229,14 @@ export const useFloat = (workerId?: string) => {
 
       if (error) throw error;
 
+      recordWorkerActivity(workerId, {
+        type: 'shift_ended',
+        title: 'Shift Closed',
+        details: `Returned GH₵ ${totalReturned.toFixed(2)} of GH₵ ${totalTaken.toFixed(2)} float`,
+      });
+
+      localStorage.removeItem(`active_shift_${workerId}`);
+      localStorage.removeItem(`float_txs_${workerId}`);
       setCurrentShift(null);
       setFloatTransactions([]);
       await fetchShiftHistory();

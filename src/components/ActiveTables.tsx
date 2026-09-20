@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Plus, Trash2, ChevronDown, Undo, RotateCcw, Minus, Hash, Receipt, Clock, CreditCard as Edit3, Check, Eye, Printer, AlertTriangle } from 'lucide-react';
 import { useToast } from './Toast';
+import { useAuth } from '../hooks/useAuth';
+import { recordWorkerActivity } from '../lib/workerActivity';
 
 export interface TableLineItem {
   id: string;
@@ -23,6 +25,7 @@ type ConfirmAction = 'undo' | 'clear' | 'clearAll' | 'deleteTable' | null;
 
 export const ActiveTables = () => {
   const toast = useToast();
+  const { currentWorker } = useAuth();
   const [tables, setTables] = useState<TableOrder[]>([]);
   const [newTable, setNewTable] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -74,14 +77,32 @@ export const ActiveTables = () => {
     setJustAddedId(table.id);
     setTimeout(() => setJustAddedId(null), 600);
     toast.success('Table Added', `${name} is ready for order taking`);
+
+    if (currentWorker) {
+      recordWorkerActivity(currentWorker.id, {
+        type: 'table_order',
+        title: `Opened ${name}`,
+        details: 'Ready for order taking',
+      });
+    }
   };
 
   const handleDeleteTable = (id: string) => {
-    const table = tables.find(t => t.id !== id ? null : t);
+    const table = tables.find(t => (t.id !== id ? null : t));
     const tableName = table ? table.tableName : 'Table';
+    const total = table ? getTableTotal(table) : 0;
     setTables(tables.filter(t => t.id !== id));
     if (expandedId === id) setExpandedId(null);
     toast.info('Table Closed', `${tableName} has been removed`);
+
+    if (currentWorker) {
+      recordWorkerActivity(currentWorker.id, {
+        type: 'table_order',
+        title: `Closed ${tableName}`,
+        details: `${table?.items.length || 0} item(s) • GH₵ ${total.toFixed(2)}`,
+        amount: total,
+      });
+    }
   };
 
   const handleClearAll = () => {
@@ -114,6 +135,15 @@ export const ActiveTables = () => {
     }));
 
     toast.success('Item Added', `${qty}x ${itemName} (GHS ${(price * qty).toFixed(2)}) ${targetTable ? `to ${targetTable.tableName}` : ''}`);
+
+    if (currentWorker) {
+      recordWorkerActivity(currentWorker.id, {
+        type: 'table_order',
+        title: `${targetTable?.tableName || 'Table'}: Added ${qty}x ${itemName}`,
+        details: `GH₵ ${(price * qty).toFixed(2)}`,
+        amount: price * qty,
+      });
+    }
 
     setNewItemName('');
     setNewItemPrice('');

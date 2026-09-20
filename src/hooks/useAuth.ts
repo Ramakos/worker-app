@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Worker } from '../types';
+import { recordWorkerActivity } from '../lib/workerActivity';
 
 const DEV_WORKER: Worker = {
   id: '00000000-0000-0000-0000-000000000001',
@@ -12,16 +13,35 @@ const DEV_WORKER: Worker = {
 };
 
 export const useAuth = () => {
-  const [currentWorker, setCurrentWorker] = useState<Worker | null>(null);
+  // Synchronously hydrate from localStorage to prevent login flicker on reload
+  const [currentWorker, setCurrentWorker] = useState<Worker | null>(() => {
+    try {
+      const storedDevMode = localStorage.getItem('devMode') === 'true';
+      if (storedDevMode) return DEV_WORKER;
+      const stored = localStorage.getItem('currentWorker');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
+
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const devModeRef = useRef(false);
+  const devModeRef = useRef(localStorage.getItem('devMode') === 'true');
 
   const devSignIn = () => {
     devModeRef.current = true;
     setCurrentWorker(DEV_WORKER);
     localStorage.setItem('currentWorker', JSON.stringify(DEV_WORKER));
     localStorage.setItem('devMode', 'true');
+    recordWorkerActivity(DEV_WORKER.id, {
+      type: 'shift_started',
+      title: 'Dev Shift Started',
+      details: 'Dev mode quick access session',
+    });
   };
 
   const fetchWorkers = async () => {
@@ -107,6 +127,7 @@ export const useAuth = () => {
       }
 
       // Check if shift already exists, resume if active, start if not
+      let shiftRecord: any = null;
       const { data: existingShift } = await supabase
         .from('worker_shifts')
         .select('*')
@@ -115,23 +136,44 @@ export const useAuth = () => {
         .maybeSingle();
 
       if (!existingShift) {
-        const { error: shiftError } = await supabase
+        const { data: newShift, error: shiftError } = await supabase
           .from('worker_shifts')
           .insert({
             user_id: worker.id,
             started_at: new Date().toISOString(),
             active: true,
-          });
+          })
+          .select()
+          .maybeSingle();
 
         if (shiftError) {
           console.error('Shift creation error:', shiftError);
           return { error: 'Failed to start shift. Please try again.' };
         }
+        shiftRecord = newShift;
+      } else {
+        shiftRecord = existingShift;
       }
 
       const activeWorker = { ...worker, is_active: true, auth_method: 'password' as const };
       setCurrentWorker(activeWorker);
       localStorage.setItem('currentWorker', JSON.stringify(activeWorker));
+      if (shiftRecord) {
+        localStorage.setItem(`active_shift_${worker.id}`, JSON.stringify(shiftRecord));
+      }
+      localStorage.setItem('workerSession', JSON.stringify({
+        worker: activeWorker,
+        shift: shiftRecord,
+        login_at: new Date().toISOString(),
+        last_active_at: new Date().toISOString(),
+      }));
+
+      // Record activity locally
+      recordWorkerActivity(worker.id, {
+        type: 'shift_started',
+        title: 'Shift Started',
+        details: `Signed in with password at ${new Date().toLocaleTimeString()}`,
+      });
 
       return { success: true };
     } catch (error) {
@@ -163,6 +205,7 @@ export const useAuth = () => {
       }
 
       // Check if shift already exists, resume if active, start if not
+      let shiftRecord: any = null;
       const { data: existingShift } = await supabase
         .from('worker_shifts')
         .select('*')
@@ -171,23 +214,44 @@ export const useAuth = () => {
         .maybeSingle();
 
       if (!existingShift) {
-        const { error: shiftError } = await supabase
+        const { data: newShift, error: shiftError } = await supabase
           .from('worker_shifts')
           .insert({
             user_id: worker.id,
             started_at: new Date().toISOString(),
             active: true,
-          });
+          })
+          .select()
+          .maybeSingle();
 
         if (shiftError) {
           console.error('Shift creation error:', shiftError);
           return { error: 'Failed to start shift. Please try again.' };
         }
+        shiftRecord = newShift;
+      } else {
+        shiftRecord = existingShift;
       }
 
       const activeWorker = { ...worker, is_active: true, auth_method: 'pin' as const };
       setCurrentWorker(activeWorker);
       localStorage.setItem('currentWorker', JSON.stringify(activeWorker));
+      if (shiftRecord) {
+        localStorage.setItem(`active_shift_${worker.id}`, JSON.stringify(shiftRecord));
+      }
+      localStorage.setItem('workerSession', JSON.stringify({
+        worker: activeWorker,
+        shift: shiftRecord,
+        login_at: new Date().toISOString(),
+        last_active_at: new Date().toISOString(),
+      }));
+
+      // Record activity locally
+      recordWorkerActivity(worker.id, {
+        type: 'shift_started',
+        title: 'Shift Started (Quick PIN)',
+        details: `Signed in with PIN at ${new Date().toLocaleTimeString()}`,
+      });
 
       return { success: true };
     } catch (error) {
@@ -216,17 +280,26 @@ export const useAuth = () => {
   };
 
   const signOut = async () => {
-    if (currentWorker && !devModeRef.current) {
-      try {
-        await supabase.auth.signOut();
-      } catch (error) {
-        console.error('Error during sign out:', error);
+    if (currentWorker) {
+      recordWorkerActivity(currentWorker.id, {
+        type: 'shift_ended',
+        title: 'Shift Ended',
+        details: `Signed out at ${new Date().toLocaleTimeString()}`,
+      });
+
+      if (!devModeRef.current) {
+        try {
+          await supabase.auth.signOut();
+        } catch (error) {
+          console.error('Error during sign out:', error);
+        }
       }
     }
 
     devModeRef.current = false;
     setCurrentWorker(null);
     localStorage.removeItem('currentWorker');
+    localStorage.removeItem('workerSession');
     localStorage.removeItem('devMode');
   };
 
@@ -236,7 +309,9 @@ export const useAuth = () => {
       devModeRef.current = true;
       const stored = localStorage.getItem('currentWorker');
       if (stored) {
-        setCurrentWorker(JSON.parse(stored));
+        try {
+          setCurrentWorker(JSON.parse(stored));
+        } catch {}
       }
       return;
     }
@@ -250,29 +325,51 @@ export const useAuth = () => {
       try {
         const worker = JSON.parse(stored);
         if (worker.auth_method === 'pin') {
-          // Verify worker is still active
-          const { data, error } = await supabase
-            .from('user_profiles')
-            .select('is_active')
-            .eq('id', worker.id)
-            .maybeSingle();
+          // Verify worker is still active, but be offline-tolerant
+          try {
+            const { data, error } = await supabase
+              .from('user_profiles')
+              .select('is_active')
+              .eq('id', worker.id)
+              .maybeSingle();
 
-          if (!error && data?.is_active) {
+            if (!error && data) {
+              if (data.is_active === false) {
+                // Account explicitly deactivated by manager
+                localStorage.removeItem('currentWorker');
+                localStorage.removeItem('workerSession');
+                setCurrentWorker(null);
+              } else {
+                setCurrentWorker(worker);
+              }
+            } else {
+              // Network offline/error - retain current session
+              setCurrentWorker(worker);
+            }
+          } catch {
+            // Keep session on network failure
             setCurrentWorker(worker);
-          } else {
-            localStorage.removeItem('currentWorker');
-            setCurrentWorker(null);
           }
           return;
         }
 
-        // For password logins, check Supabase session
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user && session.user.id === worker.id) {
+        // For password logins, check Supabase session if online
+        try {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          if (!error && session?.user) {
+            if (session.user.id === worker.id) {
+              setCurrentWorker(worker);
+            } else {
+              localStorage.removeItem('currentWorker');
+              localStorage.removeItem('workerSession');
+              setCurrentWorker(null);
+            }
+          } else {
+            // Keep local session unless explicitly logged out
+            setCurrentWorker(worker);
+          }
+        } catch {
           setCurrentWorker(worker);
-        } else {
-          localStorage.removeItem('currentWorker');
-          setCurrentWorker(null);
         }
       } catch {
         localStorage.removeItem('currentWorker');
@@ -282,20 +379,22 @@ export const useAuth = () => {
 
     checkSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       const stored = localStorage.getItem('currentWorker');
       if (stored) {
         try {
           const worker = JSON.parse(stored);
           if (worker.auth_method === 'pin') {
-            return;
+            return; // Ignore supabase auth state changes for PIN-authenticated workers
           }
         } catch {}
       }
 
-      if (!session && !devModeRef.current) {
+      // Only wipe if user explicitly signed out
+      if (event === 'SIGNED_OUT' && !devModeRef.current) {
         setCurrentWorker(null);
         localStorage.removeItem('currentWorker');
+        localStorage.removeItem('workerSession');
       }
     });
 

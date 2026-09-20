@@ -62,3 +62,33 @@ export interface FloatTransaction {
   amount: number;
   created_at: string;
 }
+
+export type WorkerActivityType =
+  | 'shift_started'
+  | 'shift_ended'
+  | 'order_claimed'
+  | 'order_status'
+  | 'table_order'
+  | 'float_taken'
+  | 'float_returned'
+  | 'tip_logged';
+
+export interface WorkerActivityItem {
+  id: string;
+  worker_id: string;
+  timestamp: string;
+  type: WorkerActivityType;
+  title: string;
+  details?: string;
+  amount?: number | null;
+  order_id?: number | null;
+  status?: string | null;
+  synced?: boolean;
+}
+
+export interface WorkerSession {
+  worker: Worker;
+  shift?: WorkerShift | null;
+  login_at: string;
+  last_active_at: string;
+}

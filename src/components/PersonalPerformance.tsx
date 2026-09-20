@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { TrendingUp, Gift, Clock, RotateCcw } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { recordWorkerActivity } from '../lib/workerActivity';
 
 interface TipEntry {
   id: string;
@@ -16,6 +18,7 @@ interface SessionStats {
 }
 
 export const PersonalPerformance = () => {
+  const { currentWorker } = useAuth();
   const [stats, setStats] = useState<SessionStats>(() => {
     const saved = localStorage.getItem('personalStats');
     if (saved) {
@@ -52,6 +55,15 @@ export const PersonalPerformance = () => {
       totalTips: prev.totalTips + amount,
       tipEntries: [...prev.tipEntries, newEntry],
     }));
+
+    if (currentWorker) {
+      recordWorkerActivity(currentWorker.id, {
+        type: 'tip_logged',
+        title: `Logged Tip: GH₵ ${amount.toFixed(2)}`,
+        amount,
+      });
+    }
+
     setTipInput('');
   };
 

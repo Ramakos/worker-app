@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, DollarSign, LogOut, UtensilsCrossed, Table2, Sparkles, ChevronRight, BarChart3, ClipboardList } from 'lucide-react';
+import { User, DollarSign, LogOut, UtensilsCrossed, Table2, Sparkles, ChevronRight, BarChart3, ClipboardList, History } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useOrders } from '../hooks/useOrders';
 import ramakosLogo from '../assets/ramakos-logo.png';
@@ -11,8 +11,9 @@ import { MenuReference } from './MenuReference';
 import { PersonalPerformance } from './PersonalPerformance';
 import { MySales } from './MySales';
 import { OrderTracker } from './OrderTracker';
+import { WorkerActivityTimeline } from './WorkerActivityTimeline';
 
-type Tab = 'orders' | 'tables' | 'float' | 'menu' | 'sales' | 'performance';
+type Tab = 'orders' | 'tables' | 'activity' | 'float' | 'menu' | 'sales' | 'performance';
 
 const DEV_WORKER: Worker = {
   id: '00000000-0000-0000-0000-000000000001',
@@ -35,6 +36,7 @@ export const Dashboard = () => {
   const tabs = [
     { id: 'orders' as Tab, label: 'Orders', icon: ClipboardList },
     { id: 'tables' as Tab, label: 'Tables', icon: Table2 },
+    { id: 'activity' as Tab, label: 'Activity', icon: History },
     { id: 'float' as Tab, label: 'Float', icon: DollarSign },
     { id: 'menu' as Tab, label: 'Menu', icon: UtensilsCrossed },
     { id: 'sales' as Tab, label: 'Sales', icon: BarChart3 },
@@ -154,6 +156,11 @@ export const Dashboard = () => {
         {activeTab === 'tables' && (
           <div className="fade-in">
             <ActiveTables key={tablesKey} />
+          </div>
+        )}
+        {activeTab === 'activity' && (
+          <div className="fade-in">
+            <WorkerActivityTimeline workerId={worker.id} />
           </div>
         )}
         {activeTab === 'float' && (
