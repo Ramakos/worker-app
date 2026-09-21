@@ -59,28 +59,61 @@ export const useAuth = () => {
     }
   };
 
+  const normalizeEmail = (input: string): string => {
+    const clean = input.trim().toLowerCase();
+    if (clean.includes('@')) return clean;
+    return `${clean}@ramakos.com`;
+  };
+
   const signIn = async (workerIdOrEmail: string, password: string) => {
     setIsLoading(true);
     try {
-      // Support selecting from list OR entering email/username directly
+      const cleanInput = workerIdOrEmail.trim();
+
+      // 1. Check if user selected a worker from list OR entered ID/username/email
       let matchedWorker = workers.find(
-        (w) => w.id === workerIdOrEmail || w.username.toLowerCase() === workerIdOrEmail.toLowerCase()
+        (w) =>
+          w.id === cleanInput ||
+          w.username.toLowerCase() === cleanInput.toLowerCase() ||
+          normalizeEmail(w.username) === normalizeEmail(cleanInput)
       );
 
-      const emailToUse = matchedWorker ? matchedWorker.username : workerIdOrEmail.trim();
-
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email: emailToUse,
-        password: password,
-      });
-
-      if (authError) {
-        console.error('Auth error:', authError);
-        return { error: 'Invalid email or password. Please try again.' };
+      // 2. Identify candidate emails to attempt authentication against Supabase Auth
+      const candidateEmails: string[] = [];
+      if (matchedWorker) {
+        candidateEmails.push(normalizeEmail(matchedWorker.username));
+        if (matchedWorker.username.includes('@')) {
+          candidateEmails.push(matchedWorker.username);
+        }
+      } else {
+        candidateEmails.push(normalizeEmail(cleanInput));
+        if (cleanInput.includes('@')) {
+          candidateEmails.push(cleanInput);
+        }
       }
 
-      if (!authData.user) {
-        return { error: 'Authentication failed' };
+      // De-duplicate candidate emails
+      const uniqueEmails = Array.from(new Set(candidateEmails.map((e) => e.toLowerCase())));
+
+      let authData: any = null;
+      let lastAuthError: any = null;
+
+      for (const emailCandidate of uniqueEmails) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: emailCandidate,
+          password: password,
+        });
+        if (!error && data?.user) {
+          authData = data;
+          lastAuthError = null;
+          break;
+        }
+        lastAuthError = error;
+      }
+
+      if (lastAuthError || !authData?.user) {
+        console.error('Auth error on candidate emails:', uniqueEmails, lastAuthError);
+        return { error: 'Invalid password. Please check your credentials or use quick PIN.' };
       }
 
       // If not previously in list, fetch profile as authenticated user
@@ -107,7 +140,7 @@ export const useAuth = () => {
         matchedWorker = {
           id: authData.user.id,
           full_name: profileData?.full_name || authData.user.email || 'Staff Member',
-          username: authData.user.email || '',
+          username: profileData?.username || authData.user.email || '',
           worker_id: profileData?.worker_id || null,
           role: primaryRole,
           is_active: profileData?.is_active !== false,

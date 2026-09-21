@@ -161,7 +161,7 @@ export const Dashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/40">
       {/* Header */}
       <header className="sticky top-0 z-40 backdrop-blur-md bg-card/80 border-b border-border/50">
-        <div className="px-3 sm:px-4 py-2.5 sm:py-3 max-w-lg mx-auto">
+        <div className="px-3 sm:px-6 py-2.5 sm:py-3 max-w-4xl mx-auto">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
               <div className="relative shrink-0">
@@ -214,8 +214,8 @@ export const Dashboard = () => {
       </header>
 
       {/* Tab Navigation */}
-      <nav className="sticky top-[53px] sm:top-[60px] z-30 px-2 sm:px-3 py-1.5 sm:py-2 bg-card/80 backdrop-blur-md border-b border-border/50">
-        <div className="max-w-lg mx-auto overflow-x-auto no-scrollbar">
+      <nav className="sticky top-[53px] sm:top-[60px] z-30 px-2 sm:px-6 py-1.5 sm:py-2 bg-card/80 backdrop-blur-md border-b border-border/50">
+        <div className="max-w-4xl mx-auto overflow-x-auto no-scrollbar touch-pan-x">
           <div className="flex gap-1 p-1 bg-muted/80 rounded-xl min-w-max sm:min-w-0">
             {tabs.map(tab => {
               const Icon = tab.icon;
@@ -227,7 +227,7 @@ export const Dashboard = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`relative flex-1 min-w-[58px] sm:min-w-0 flex flex-col items-center justify-center gap-1 py-1.5 px-2 rounded-lg font-medium text-xs transition-all haptic ${
+                  className={`relative flex-1 min-w-[58px] sm:min-w-0 flex flex-col items-center justify-center gap-1 py-1.5 px-2.5 sm:px-3 rounded-lg font-medium text-xs transition-all haptic ${
                     isActive
                       ? 'bg-card shadow-sm text-primary font-semibold'
                       : 'text-muted-foreground hover:text-foreground'
@@ -254,7 +254,7 @@ export const Dashboard = () => {
       </nav>
 
       {/* Content */}
-      <main className="px-3 py-4 pb-24 max-w-lg mx-auto safe-bottom">
+      <main className="px-3 sm:px-6 py-4 pb-24 max-w-4xl mx-auto safe-bottom">
         {activeTab === 'orders' && (
           <div className="fade-in">
             <OrderTracker workerId={worker.id} workerRole={worker.role} />

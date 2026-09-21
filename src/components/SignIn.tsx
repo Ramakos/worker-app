@@ -1,10 +1,45 @@
 import { useState, useEffect } from 'react';
-import { LogIn, Eye, EyeOff, AlertCircle, Zap, KeyRound, Check, RefreshCw } from 'lucide-react';
+import {
+  LogIn,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  Zap,
+  KeyRound,
+  Check,
+  RefreshCw,
+  Delete,
+  ChevronLeft,
+  User,
+  CreditCard,
+  ChefHat,
+  ShieldAlert,
+} from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import ramakosLogoFull from '../assets/ramakos-logo-full.png';
 
 const DEV_MODE = import.meta.env.DEV;
+
+const getRoleBadge = (role: string) => {
+  switch (role) {
+    case 'admin':
+      return { label: 'Admin', color: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30', icon: ShieldAlert };
+    case 'counter_worker':
+      return { label: 'Counter', color: 'bg-sky-500/10 text-sky-600 border-sky-500/30', icon: CreditCard };
+    case 'kitchen_staff':
+      return { label: 'Kitchen', color: 'bg-amber-500/10 text-amber-600 border-amber-500/30', icon: ChefHat };
+    default:
+      return { label: 'Staff', color: 'bg-muted text-muted-foreground border-border', icon: User };
+  }
+};
+
+const getInitials = (name: string) => {
+  if (!name) return 'ST';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+};
 
 export const SignIn = () => {
   const { signIn, signInWithPin, setWorkerPin, isLoading, devSignIn, workers, fetchWorkers } = useAuth();
@@ -13,7 +48,7 @@ export const SignIn = () => {
   const [selectedWorker, setSelectedWorker] = useState('');
   const [password, setPassword] = useState('');
   const [pin, setPin] = useState('');
-  const [authMode, setAuthMode] = useState<'pin' | 'password'>('password');
+  const [authMode, setAuthMode] = useState<'pin' | 'password'>('pin');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
@@ -24,7 +59,7 @@ export const SignIn = () => {
 
   const selectedWorkerObj = workers.find((w) => w.id === selectedWorker);
 
-  // When workers become available, default to list mode if not already set
+  // Default to list mode once workers are cached
   useEffect(() => {
     if (workers.length > 0 && !selectedWorker) {
       setSelectedWorker(workers[0].id);
@@ -66,6 +101,19 @@ export const SignIn = () => {
     }
   };
 
+  const handleAutoSubmitPin = async (pinValue: string) => {
+    if (!selectedWorker) return;
+    setError('');
+    const result = await signInWithPin(selectedWorker, pinValue);
+    if (result?.error) {
+      setError(result.error);
+      toast.error('Sign-in Failed', result.error);
+      setPin('');
+    } else {
+      toast.success('Welcome Back!', `Signed in as ${selectedWorkerObj?.full_name || 'Staff'}`);
+    }
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -85,7 +133,7 @@ export const SignIn = () => {
         setError(result.error);
         toast.error('Sign-in Failed', result.error);
       } else {
-        toast.success('Welcome Back!', 'Signed in successfully.');
+        toast.success('Welcome Back!', 'Signed in successfully. Worker roster synchronized.');
       }
       return;
     }
@@ -98,7 +146,7 @@ export const SignIn = () => {
 
     if (authMode === 'pin') {
       if (!pin) {
-        toast.warning('Enter PIN', 'Please enter your 4-digit staff PIN.');
+        toast.warning('Enter PIN', 'Please enter your staff PIN.');
         return;
       }
       const result = await signInWithPin(selectedWorker, pin);
@@ -118,7 +166,6 @@ export const SignIn = () => {
         setError(result.error);
         toast.error('Sign-in Failed', result.error);
       } else if (result?.success && !selectedWorkerObj?.has_pin) {
-        // Prompt for PIN setup
         setPendingPinSetupWorkerId(selectedWorker);
         toast.info('Quick Setup', 'Set a 4-digit PIN for instant access on future shifts.');
       } else {
@@ -146,81 +193,86 @@ export const SignIn = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary to-accent flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/25 to-accent/15 flex items-center justify-center p-3 sm:p-6">
       <div className="w-full max-w-md">
-        <div className="bg-card rounded-2xl shadow-xl p-8 border border-border">
-          <div className="text-center mb-8">
+        {/* Main Card Container */}
+        <div className="bg-card rounded-3xl shadow-xl p-5 sm:p-7 border border-border/70 backdrop-blur-sm">
+          {/* Header */}
+          <div className="text-center mb-5">
             <img
               src={ramakosLogoFull}
               alt="Ramakos Catering Service"
-              className="h-16 w-auto mx-auto mb-3 object-contain"
+              className="h-14 sm:h-16 w-auto mx-auto mb-2 object-contain"
             />
-            <h1 className="text-2xl font-bold text-foreground mb-1 tracking-tight">Worker Portal</h1>
-            <p className="text-sm text-muted-foreground">Sign in to start your shift</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">Worker Portal</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Start your shift & live service dispatch</p>
           </div>
 
-          <form onSubmit={handleSignIn} className="space-y-5">
-            {/* Header with Mode Toggle & Sync Button */}
-            <div className="flex items-center justify-between pb-1 border-b border-border/60">
-              <label className="block text-sm font-semibold text-foreground">
-                {loginMode === 'direct' || workers.length === 0 ? 'Staff Account Sign-in' : 'Select Your Name'}
-              </label>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleManualSync}
-                  disabled={isSyncing}
-                  className="text-xs text-primary hover:underline flex items-center gap-1 font-medium disabled:opacity-50"
-                  title="Sync staff from server"
-                >
-                  <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
-                  <span>{isSyncing ? 'Syncing...' : 'Sync'}</span>
-                </button>
-                {workers.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLoginMode(loginMode === 'list' ? 'direct' : 'list');
-                      setError('');
-                    }}
-                    className="text-xs text-muted-foreground hover:text-foreground font-medium"
-                  >
-                    {loginMode === 'list' ? 'Use Email' : 'Use Staff List'}
-                  </button>
-                )}
-              </div>
-            </div>
+          {/* Mode Switcher Pills */}
+          <div className="flex p-1 bg-muted rounded-2xl mb-5 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => {
+                setLoginMode('list');
+                setError('');
+              }}
+              className={`flex-1 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                loginMode === 'list' && workers.length > 0
+                  ? 'bg-card text-primary shadow-xs font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <User className="w-3.5 h-3.5" />
+              <span>Staff Roster</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setLoginMode('direct');
+                setError('');
+              }}
+              className={`flex-1 py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 ${
+                loginMode === 'direct' || workers.length === 0
+                  ? 'bg-card text-primary shadow-xs font-bold'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Email Sign-in</span>
+            </button>
+          </div>
 
-            {/* DIRECT EMAIL / USERNAME LOGIN (Like Admin Portal) */}
+          <form onSubmit={handleSignIn} className="space-y-4">
+            {/* DIRECT EMAIL / USERNAME LOGIN */}
             {loginMode === 'direct' || workers.length === 0 ? (
-              <div className="space-y-4">
+              <div className="space-y-3.5">
                 {workers.length === 0 && (
-                  <div className="bg-primary/5 border border-primary/20 rounded-xl p-3.5 text-xs text-muted-foreground flex items-start gap-2.5">
+                  <div className="bg-primary/5 border border-primary/20 rounded-2xl p-3.5 text-xs text-muted-foreground flex items-start gap-2.5">
                     <AlertCircle className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-semibold text-foreground block mb-0.5">Staff Directory Sync</span>
-                      Enter your staff email (e.g. <span className="text-primary font-mono font-medium">counter@ramakos.com</span>) & password to sign in. The worker list will automatically sync and cache on this device.
+                      <span className="font-semibold text-foreground block mb-0.5">Terminal Initial Setup</span>
+                      Enter your account username or email (e.g. <span className="text-primary font-mono font-medium">counter</span> or <span className="text-primary font-mono font-medium">counter@ramakos.com</span>) to sign in and activate this device.
                     </div>
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                    Staff Email or Username
+                  <label className="block text-xs font-medium text-foreground mb-1.5">
+                    Account Email or Username
                   </label>
                   <input
                     type="text"
                     value={directEmail}
                     onChange={(e) => setDirectEmail(e.target.value)}
-                    className="input h-11 w-full"
-                    placeholder="e.g. counter@ramakos.com"
+                    className="input h-12 w-full text-sm rounded-xl px-3.5"
+                    placeholder="e.g. counter or counter@ramakos.com"
                     required
                     autoFocus
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                  <label className="block text-xs font-medium text-foreground mb-1.5">
                     Password
                   </label>
                   <div className="relative">
@@ -228,119 +280,224 @@ export const SignIn = () => {
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="input h-11 pr-12 w-full"
-                      placeholder="Enter your account password"
+                      className="input h-12 pr-12 w-full text-sm rounded-xl px-3.5"
+                      placeholder="Enter account password"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
                       tabIndex={-1}
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
                 </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    type="button"
+                    onClick={handleManualSync}
+                    disabled={isSyncing}
+                    className="text-xs text-primary hover:underline flex items-center gap-1 font-medium disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
+                    <span>{isSyncing ? 'Syncing...' : 'Sync Staff Roster'}</span>
+                  </button>
+                </div>
               </div>
             ) : (
-              /* WORKER SELECTION FROM ROSTER */
+              /* WORKER SELECTION ROSTER WITH ON-SCREEN PIN NUMPAD */
               <div className="space-y-4">
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {workers.map((worker) => (
-                    <label
-                      key={worker.id}
-                      className={`flex items-center p-3.5 border-2 rounded-xl cursor-pointer transition-all ${
-                        selectedWorker === worker.id
-                          ? 'border-primary bg-secondary'
-                          : 'border-border hover:border-primary/50 hover:bg-accent'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="worker"
-                        value={worker.id}
-                        checked={selectedWorker === worker.id}
-                        onChange={(e) => setSelectedWorker(e.target.value)}
-                        className="sr-only"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-foreground text-sm">{worker.full_name}</span>
-                          {worker.has_pin && (
-                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                              PIN
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground capitalize">{worker.role.replace('_', ' ')}</div>
-                      </div>
-                      <div
-                        className={`w-4 h-4 rounded-full border-2 ${
-                          selectedWorker === worker.id
-                            ? 'border-primary bg-primary'
-                            : 'border-muted-foreground/30'
-                        }`}
-                      >
-                        {selectedWorker === worker.id && (
-                          <div className="w-2 h-2 bg-primary-foreground rounded-full m-0.5"></div>
-                        )}
-                      </div>
-                    </label>
-                  ))}
-                </div>
-
+                {/* Selected Worker Header Banner */}
                 {selectedWorkerObj && (
-                  <div className="pt-2 border-t border-border/40">
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm font-medium text-foreground">
-                        {authMode === 'pin' ? 'Quick PIN' : 'Password'}
-                      </label>
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-secondary/70 border border-border/80">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                        {getInitials(selectedWorkerObj.full_name)}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="font-bold text-sm text-foreground block truncate leading-tight">
+                          {selectedWorkerObj.full_name}
+                        </span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {(() => {
+                            const badge = getRoleBadge(selectedWorkerObj.role);
+                            return (
+                              <span className={`text-[10px] px-1.5 py-0.2 rounded border font-semibold ${badge.color}`}>
+                                {badge.label}
+                              </span>
+                            );
+                          })()}
+                          <span className="text-[10px] text-muted-foreground truncate">
+                            {selectedWorkerObj.username}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedWorker('');
+                        setPin('');
+                        setPassword('');
+                      }}
+                      className="text-xs text-primary hover:underline font-semibold shrink-0 ml-2"
+                    >
+                      Switch
+                    </button>
+                  </div>
+                )}
+
+                {/* Worker selection cards when no worker selected */}
+                {!selectedWorker && (
+                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                    {workers.map((worker) => {
+                      const badge = getRoleBadge(worker.role);
+                      const isChosen = selectedWorker === worker.id;
+                      return (
+                        <button
+                          key={worker.id}
+                          type="button"
+                          onClick={() => setSelectedWorker(worker.id)}
+                          className={`w-full flex items-center p-3 rounded-2xl border-2 transition-all text-left ${
+                            isChosen
+                              ? 'border-primary bg-primary/5 shadow-xs'
+                              : 'border-border/80 hover:border-primary/40 hover:bg-secondary/40'
+                          }`}
+                        >
+                          <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0 mr-3">
+                            {getInitials(worker.full_name)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="font-semibold text-sm text-foreground block truncate">
+                              {worker.full_name}
+                            </span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className={`text-[10px] px-1.5 py-0.2 rounded border font-medium ${badge.color}`}>
+                                {badge.label}
+                              </span>
+                              {worker.has_pin && (
+                                <span className="text-[10px] text-primary font-bold">
+                                  ⚡ PIN
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <ChevronLeft className="w-4 h-4 text-muted-foreground rotate-180" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Authentication Input for Selected Worker */}
+                {selectedWorkerObj && (
+                  <div className="space-y-3 pt-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        {authMode === 'pin' ? 'Enter Staff PIN' : 'Enter Password'}
+                      </span>
                       {selectedWorkerObj.has_pin && (
                         <button
                           type="button"
-                          onClick={() => setAuthMode(authMode === 'pin' ? 'password' : 'pin')}
-                          className="text-xs text-primary hover:underline font-medium"
+                          onClick={() => {
+                            setAuthMode(authMode === 'pin' ? 'password' : 'pin');
+                            setPin('');
+                            setPassword('');
+                            setError('');
+                          }}
+                          className="text-xs text-primary hover:underline font-semibold"
                         >
-                          {authMode === 'pin' ? 'Use Password instead' : 'Use PIN instead'}
+                          {authMode === 'pin' ? 'Use Password' : 'Use PIN'}
                         </button>
                       )}
                     </div>
 
                     {authMode === 'pin' ? (
-                      <div className="space-y-2">
-                        <input
-                          type="password"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          autoComplete="one-time-code"
-                          maxLength={6}
-                          value={pin}
-                          onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                          className="input text-center tracking-[1em] text-xl font-bold font-mono h-12"
-                          placeholder="••••"
-                          autoFocus
-                        />
-                        <p className="text-xs text-muted-foreground text-center">
-                          Enter your 4-6 digit quick PIN
-                        </p>
+                      <div>
+                        {/* Visual PIN Dots Indicator */}
+                        <div className="flex justify-center items-center gap-3.5 my-2 py-1">
+                          {[0, 1, 2, 3].map((idx) => (
+                            <div
+                              key={idx}
+                              className={`w-4 h-4 rounded-full border-2 transition-all duration-150 ${
+                                pin.length > idx
+                                  ? 'bg-primary border-primary scale-110 shadow-sm'
+                                  : 'border-muted-foreground/30 bg-card'
+                              }`}
+                            />
+                          ))}
+                        </div>
+
+                        {/* Fast On-Screen Touch Numpad (Mobile Ergonomics) */}
+                        <div className="grid grid-cols-3 gap-2 max-w-[280px] mx-auto pt-1">
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                            <button
+                              key={num}
+                              type="button"
+                              onClick={() => {
+                                if (pin.length < 6) {
+                                  const next = pin + num;
+                                  setPin(next);
+                                  if (next.length === 4) {
+                                    handleAutoSubmitPin(next);
+                                  }
+                                }
+                              }}
+                              className="h-13 sm:h-14 rounded-2xl bg-secondary hover:bg-secondary/80 active:scale-95 text-lg sm:text-xl font-bold text-foreground border border-border/60 transition-all flex items-center justify-center shadow-xs"
+                            >
+                              {num}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setPin('')}
+                            className="h-13 sm:h-14 rounded-2xl bg-muted/70 hover:bg-muted text-xs font-bold text-muted-foreground active:scale-95 transition-all flex items-center justify-center"
+                          >
+                            CLEAR
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (pin.length < 6) {
+                                const next = pin + '0';
+                                setPin(next);
+                                if (next.length === 4) {
+                                  handleAutoSubmitPin(next);
+                                }
+                              }
+                            }}
+                            className="h-13 sm:h-14 rounded-2xl bg-secondary hover:bg-secondary/80 active:scale-95 text-lg sm:text-xl font-bold text-foreground border border-border/60 transition-all flex items-center justify-center shadow-xs"
+                          >
+                            0
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPin((p) => p.slice(0, -1))}
+                            className="h-13 sm:h-14 rounded-2xl bg-muted/70 hover:bg-muted text-muted-foreground active:scale-95 transition-all flex items-center justify-center"
+                          >
+                            <Delete className="w-5 h-5" />
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="relative">
                         <input
-                          id="password"
                           type={showPassword ? 'text' : 'password'}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="input pr-12 h-11"
-                          placeholder="Enter your password"
+                          className="input h-12 pr-12 w-full text-sm rounded-xl px-3.5"
+                          placeholder="Enter account password"
                           required
-                          disabled={!selectedWorker}
+                          autoFocus
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
                           tabIndex={-1}
                         >
                           {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -353,9 +510,9 @@ export const SignIn = () => {
             )}
 
             {error && (
-              <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 flex items-start space-x-3">
-                <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
-                <div className="text-destructive text-sm">{error}</div>
+              <div className="bg-destructive/10 border border-destructive/30 rounded-2xl p-3.5 flex items-start space-x-2.5">
+                <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                <div className="text-destructive text-xs font-medium">{error}</div>
               </div>
             )}
 
@@ -363,35 +520,38 @@ export const SignIn = () => {
               <button
                 type="button"
                 onClick={devSignIn}
-                className="w-full bg-foreground text-background py-3.5 px-6 rounded-xl font-medium text-sm
+                className="w-full bg-foreground text-background py-3 px-4 rounded-2xl font-medium text-xs
                          hover:bg-foreground/90 transition-colors flex items-center justify-center space-x-2"
               >
-                <Zap className="w-4 h-4" />
+                <Zap className="w-3.5 h-3.5" />
                 <span>Dev Mode - Skip Login</span>
               </button>
             )}
 
-            <button
-              type="submit"
-              disabled={
-                isLoading ||
-                (loginMode === 'direct' || workers.length === 0
-                  ? !directEmail.trim() || !password
-                  : !selectedWorker || (authMode === 'pin' ? !pin : !password))
-              }
-              className="w-full bg-primary text-primary-foreground py-3.5 px-6 rounded-xl font-semibold text-base
-                       hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed
-                       transition-colors flex items-center justify-center space-x-2 shadow-brand"
-            >
-              {isLoading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary-foreground border-t-transparent"></div>
-              ) : (
-                <>
-                  <LogIn className="w-5 h-5" />
-                  <span>Start Shift</span>
-                </>
-              )}
-            </button>
+            {/* Submit Button (Shown in Direct Mode or when using password in List Mode) */}
+            {(loginMode === 'direct' || workers.length === 0 || authMode === 'password') && (
+              <button
+                type="submit"
+                disabled={
+                  isLoading ||
+                  (loginMode === 'direct' || workers.length === 0
+                    ? !directEmail.trim() || !password
+                    : !selectedWorker || !password)
+                }
+                className="w-full bg-primary text-primary-foreground py-3.5 px-6 rounded-2xl font-semibold text-sm sm:text-base
+                         hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed
+                         transition-colors flex items-center justify-center space-x-2 shadow-brand"
+              >
+                {isLoading ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary-foreground border-t-transparent"></div>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    <span>Start Shift</span>
+                  </>
+                )}
+              </button>
+            )}
           </form>
         </div>
       </div>
@@ -399,20 +559,20 @@ export const SignIn = () => {
       {/* Post-Login PIN Setup Prompt */}
       {pendingPinSetupWorkerId && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-card rounded-2xl p-6 w-full max-w-sm border border-border shadow-2xl animate-in zoom-in-95">
+          <div className="bg-card rounded-3xl p-6 w-full max-w-sm border border-border shadow-2xl animate-in zoom-in-95">
             <div className="text-center mb-4">
               <div className="w-12 h-12 bg-primary/10 text-primary mx-auto rounded-full flex items-center justify-center mb-2">
                 <KeyRound className="w-6 h-6" />
               </div>
-              <h3 className="font-bold text-xl text-foreground">Link a Quick PIN</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                Set a 4-6 digit PIN so you can log in instantly next time without typing your password.
+              <h3 className="font-bold text-lg text-foreground">Set Quick PIN</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Link a 4-6 digit PIN so you can clock in and claim orders instantly without your password.
               </p>
             </div>
 
             {pinSuccessMsg ? (
-              <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 rounded-xl p-4 text-center font-medium flex items-center justify-center gap-2">
-                <Check className="w-5 h-5" />
+              <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 rounded-2xl p-4 text-center font-medium flex items-center justify-center gap-2 text-sm">
+                <Check className="w-4 h-4" />
                 <span>{pinSuccessMsg}</span>
               </div>
             ) : (
@@ -427,7 +587,7 @@ export const SignIn = () => {
                     value={newPin}
                     onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
                     placeholder="Enter 4-6 digits"
-                    className="input text-center tracking-[1em] text-xl font-bold font-mono h-12"
+                    className="input text-center tracking-[1em] text-xl font-bold font-mono h-12 rounded-xl"
                     autoFocus
                   />
                 </div>
@@ -435,7 +595,7 @@ export const SignIn = () => {
                   <button
                     type="button"
                     onClick={() => setPendingPinSetupWorkerId(null)}
-                    className="flex-1 py-3 px-4 rounded-xl border border-border font-medium text-foreground hover:bg-accent"
+                    className="flex-1 py-3 px-4 rounded-xl border border-border font-medium text-foreground hover:bg-accent text-xs"
                   >
                     Skip
                   </button>
@@ -443,7 +603,7 @@ export const SignIn = () => {
                     type="button"
                     onClick={handleSavePin}
                     disabled={newPin.length < 4}
-                    className="flex-1 py-3 px-4 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-brand-dark disabled:opacity-50"
+                    className="flex-1 py-3 px-4 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-brand-dark disabled:opacity-50 text-xs"
                   >
                     Save PIN
                   </button>
@@ -456,3 +616,4 @@ export const SignIn = () => {
     </div>
   );
 };
+
