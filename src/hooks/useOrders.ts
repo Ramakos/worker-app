@@ -110,12 +110,24 @@ export const useOrders = (workerId?: string) => {
         updateData.ready_at = new Date().toISOString();
       }
 
-      const { error } = await supabase
+      let query = (supabase as any)
         .from('orders')
         .update(updateData)
         .eq('id', orderId);
 
+      // Race-condition guard: prevent double-serving if two staff tap served simultaneously
+      if (status === 'served') {
+        query = query.neq('status', 'served');
+      }
+
+      const { data, error } = await query.select('id, status');
+
       if (error) throw error;
+
+      if (status === 'served' && (!data || data.length === 0)) {
+        await fetchOrders();
+        return { success: false, conflict: true, error: 'Order was already marked as served.' };
+      }
 
       const order = orders.find(o => o.id === orderId);
       const totalPaid = order?.total_paid
@@ -156,15 +168,41 @@ export const useOrders = (workerId?: string) => {
 
   const claimOrder = async (orderId: number, wId: string) => {
     try {
-      const { error } = await supabase
+      // ATOMIC RACE-CONDITION SAFE CLAIM:
+      // Only updates the row if claimed_by is currently NULL
+      const { data, error } = await (supabase as any)
         .from('orders')
         .update({
           claimed_by: wId,
           claimed_at: new Date().toISOString()
         })
-        .eq('id', orderId);
+        .eq('id', orderId)
+        .is('claimed_by', null)
+        .select('id, claimed_by, claimed_at');
 
       if (error) throw error;
+
+      // If 0 rows were updated, another worker claimed it first or it was already claimed
+      if (!data || data.length === 0) {
+        const { data: existing } = await (supabase as any)
+          .from('orders')
+          .select('claimed_by')
+          .eq('id', orderId)
+          .maybeSingle();
+
+        if (existing?.claimed_by === wId) {
+          return { success: true, alreadyClaimed: true };
+        }
+
+        // Another staff member won the race
+        await fetchOrders();
+        return {
+          success: false,
+          conflict: true,
+          error: 'Another staff member claimed this order just now.',
+          claimedBy: existing?.claimed_by
+        };
+      }
 
       await logWorkerOrder(orderId, 'claimed', wId);
 

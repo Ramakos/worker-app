@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { User, DollarSign, LogOut, UtensilsCrossed, Table2, Sparkles, ChevronRight, BarChart3, ClipboardList, History } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { User, DollarSign, LogOut, UtensilsCrossed, Table2, Sparkles, ChevronRight, BarChart3, ClipboardList, History, Volume2, VolumeX } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useOrders } from '../hooks/useOrders';
 import ramakosLogo from '../assets/ramakos-logo.png';
-import { Worker } from '../types';
+import { Worker, Order } from '../types';
 import { FloatManager } from './FloatManager';
 import { DashboardSummary } from './DashboardSummary';
 import { ActiveTables, TableLineItem } from './ActiveTables';
@@ -12,6 +12,10 @@ import { PersonalPerformance } from './PersonalPerformance';
 import { MySales } from './MySales';
 import { OrderTracker } from './OrderTracker';
 import { WorkerActivityTimeline } from './WorkerActivityTimeline';
+import { IncomingOrderModal } from './IncomingOrderModal';
+import { playOrderAlertChime, isAudioAlertEnabled, setAudioAlertEnabled } from '../lib/audioAlert';
+
+import { useToast } from './Toast';
 
 type Tab = 'orders' | 'tables' | 'activity' | 'float' | 'menu' | 'sales' | 'performance';
 
@@ -30,8 +34,90 @@ export const Dashboard = () => {
   const worker = currentWorker || DEV_WORKER;
   const [tablesKey, setTablesKey] = useState(0);
 
-  const { allOrders } = useOrders(worker.id);
+  const { allOrders, assignOrder, updateOrderStatus } = useOrders(worker.id);
   const activeOrdersCount = allOrders.filter(o => o.status !== 'served').length;
+
+  // Audio chime enabled state
+  const [soundEnabled, setSoundEnabled] = useState(isAudioAlertEnabled());
+
+  // Incoming orders alerting state
+  const [activeIncomingOrder, setActiveIncomingOrder] = useState<Order | null>(null);
+  const [dismissedOrderIds, setDismissedOrderIds] = useState<Set<number>>(new Set());
+  const [seenOrderIds, setSeenOrderIds] = useState<Set<number>>(new Set());
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Unclaimed incoming orders from Express Order
+  const unclaimedOrders = useMemo(() => {
+    return allOrders.filter(o => !o.claimed_by && (o.status === 'pending' || o.status === 'in_kitchen'));
+  }, [allOrders]);
+
+  // Alert detection: when a new unclaimed order arrives from Express Order, trigger chime and modal
+  useEffect(() => {
+    if (allOrders.length === 0 && !isInitialized) return;
+
+    if (!isInitialized) {
+      // First load: seed seenOrderIds with existing orders so old orders don't chime immediately
+      setSeenOrderIds(new Set(allOrders.map(o => o.id)));
+      setIsInitialized(true);
+      return;
+    }
+
+    // Identify genuinely new incoming unclaimed order
+    const freshOrder = unclaimedOrders.find(
+      o => !seenOrderIds.has(o.id) && !dismissedOrderIds.has(o.id)
+    );
+
+    if (freshOrder) {
+      playOrderAlertChime();
+      setActiveIncomingOrder(freshOrder);
+      setSeenOrderIds(prev => new Set([...prev, freshOrder.id]));
+    }
+  }, [allOrders, isInitialized, seenOrderIds, dismissedOrderIds, unclaimedOrders]);
+
+  const { toast } = useToast();
+
+  // If the active incoming order was claimed by another worker in real-time, auto-dismiss modal immediately
+  useEffect(() => {
+    if (activeIncomingOrder) {
+      const liveOrder = allOrders.find(o => o.id === activeIncomingOrder.id);
+      if (liveOrder && liveOrder.claimed_by && liveOrder.claimed_by !== worker.id) {
+        setActiveIncomingOrder(null);
+      }
+    }
+  }, [allOrders, activeIncomingOrder, worker.id]);
+
+  const handleClaimIncomingOrder = async (order: Order) => {
+    if (!worker?.id) return;
+    const res = await assignOrder(order.id, worker.id);
+    if (res?.success) {
+      await updateOrderStatus(order.id, 'in_kitchen');
+      setActiveIncomingOrder(null);
+      setActiveTab('orders');
+      toast.success('Order Claimed! 👨‍🍳', `Order #${order.id} is now assigned to you.`);
+    } else {
+      setActiveIncomingOrder(null);
+      toast.warning(
+        'Order Already Claimed',
+        res?.error || 'Another staff member claimed this order just now.'
+      );
+    }
+  };
+
+  const handleDismissIncomingOrder = () => {
+    if (activeIncomingOrder) {
+      setDismissedOrderIds(prev => new Set([...prev, activeIncomingOrder.id]));
+      setActiveIncomingOrder(null);
+    }
+  };
+
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    setAudioAlertEnabled(next);
+    if (next) {
+      playOrderAlertChime();
+    }
+  };
 
   const tabs = [
     { id: 'orders' as Tab, label: 'Orders', icon: ClipboardList },
@@ -94,6 +180,22 @@ export const Dashboard = () => {
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <button
+                onClick={toggleSound}
+                className={`p-1.5 sm:p-2 rounded-xl transition-all active:scale-95 ${
+                  soundEnabled
+                    ? 'text-primary bg-primary/10 hover:bg-primary/20'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                }`}
+                title={soundEnabled ? 'Kitchen chime active (click to mute)' : 'Kitchen chime muted (click to unmute)'}
+                aria-label="Toggle alert chime"
+              >
+                {soundEnabled ? (
+                  <Volume2 className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                ) : (
+                  <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />
+                )}
+              </button>
               <img
                 src={ramakosLogo}
                 alt="Ramakos"
@@ -118,6 +220,7 @@ export const Dashboard = () => {
             {tabs.map(tab => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
+              const hasUnclaimed = tab.id === 'orders' && unclaimedOrders.length > 0;
               const hasBadge = tab.id === 'orders' && activeOrdersCount > 0;
 
               return (
@@ -132,11 +235,15 @@ export const Dashboard = () => {
                 >
                   <div className="relative">
                     <Icon className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform ${isActive ? 'scale-110 text-primary' : ''}`} />
-                    {hasBadge && (
+                    {hasUnclaimed ? (
+                      <span className="absolute -top-1.5 -right-2.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white shadow-md animate-bounce">
+                        {unclaimedOrders.length}
+                      </span>
+                    ) : hasBadge ? (
                       <span className="absolute -top-1 -right-2 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
                         {activeOrdersCount > 9 ? '9+' : activeOrdersCount}
                       </span>
-                    )}
+                    ) : null}
                   </div>
                   <span className="text-[11px] leading-none whitespace-nowrap">{tab.label}</span>
                 </button>
@@ -185,6 +292,18 @@ export const Dashboard = () => {
           </div>
         )}
       </main>
+
+      {/* Incoming Order Alert Modal */}
+      <IncomingOrderModal
+        order={activeIncomingOrder}
+        pendingCount={unclaimedOrders.length}
+        onClaim={handleClaimIncomingOrder}
+        onDismiss={handleDismissIncomingOrder}
+        onGoToOrders={() => {
+          setActiveIncomingOrder(null);
+          setActiveTab('orders');
+        }}
+      />
     </div>
   );
 };

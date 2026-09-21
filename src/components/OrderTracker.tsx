@@ -32,11 +32,21 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
   const handleAdvanceStatus = async (orderId: number, currentStatus: Order['status'], orderNumber?: string | number) => {
     const nextStatus = getNextStatus(currentStatus);
     const label = getNextStatusLabel(currentStatus);
+
+    // If order was not yet claimed, auto-claim to this worker so they get credit for the job
+    const targetOrder = allOrders.find(o => o.id === orderId);
+    if (!targetOrder?.claimed_by && workerId) {
+      await assignOrder(orderId, workerId);
+    }
+
     const res = await updateOrderStatus(orderId, nextStatus);
     if (res?.success) {
+      const totalAmount = targetOrder?.total_paid || calculateTotal(targetOrder?.items || []);
       toast.success(
-        nextStatus === 'served' ? 'Order Served!' : `Order Advanced: ${nextStatus.toUpperCase()}`,
-        `Order #${orderNumber || orderId} marked as ${nextStatus}.`
+        nextStatus === 'served' ? 'Order Served! 💰' : `Order Advanced: ${nextStatus.toUpperCase()}`,
+        nextStatus === 'served'
+          ? `Order #${orderNumber || orderId} served! GH₵ ${Number(totalAmount).toFixed(2)} credited to your sales.`
+          : `Order #${orderNumber || orderId} marked as ${nextStatus}.`
       );
     } else {
       toast.error('Update Failed', res?.error || `Could not update to ${label}.`);
