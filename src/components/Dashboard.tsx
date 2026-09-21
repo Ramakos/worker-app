@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
-import { User, DollarSign, LogOut, UtensilsCrossed, Table2, Sparkles, ChevronRight, BarChart3, ClipboardList, History, Volume2, VolumeX } from 'lucide-react';
+import { User, LogOut, UtensilsCrossed, Table2, ChevronRight, ClipboardList, Volume2, VolumeX, SlidersHorizontal } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useOrders } from '../hooks/useOrders';
 import ramakosLogo from '../assets/ramakos-logo.png';
 import { Worker, Order } from '../types';
-import { FloatManager } from './FloatManager';
 import { DashboardSummary } from './DashboardSummary';
+import { FloatManager } from './FloatManager';
 import { ActiveTables, TableLineItem } from './ActiveTables';
 import { MenuReference } from './MenuReference';
 import { PersonalPerformance } from './PersonalPerformance';
@@ -13,11 +13,12 @@ import { MySales } from './MySales';
 import { OrderTracker } from './OrderTracker';
 import { WorkerActivityTimeline } from './WorkerActivityTimeline';
 import { IncomingOrderModal } from './IncomingOrderModal';
+import { WorkerProfileModal } from './profile/WorkerProfileModal';
 import { playOrderAlertChime, isAudioAlertEnabled, setAudioAlertEnabled } from '../lib/audioAlert';
 
 import { useToast } from './Toast';
 
-type Tab = 'orders' | 'tables' | 'activity' | 'float' | 'menu' | 'sales' | 'performance';
+type Tab = 'orders' | 'tables' | 'menu' | 'activity' | 'float' | 'sales' | 'performance';
 
 const DEV_WORKER: Worker = {
   id: '00000000-0000-0000-0000-000000000001',
@@ -30,6 +31,7 @@ const DEV_WORKER: Worker = {
 
 export const Dashboard = () => {
   const [activeTab, setActiveTab] = useState<Tab>('orders');
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { currentWorker, signOut } = useAuth();
   const worker = currentWorker || DEV_WORKER;
   const [tablesKey, setTablesKey] = useState(0);
@@ -119,14 +121,11 @@ export const Dashboard = () => {
     }
   };
 
-  const tabs = [
-    { id: 'orders' as Tab, label: 'Orders', icon: ClipboardList },
+  // Primary Floor Operation Tabs
+  const primaryTabs = [
+    { id: 'orders' as Tab, label: 'Live Orders', icon: ClipboardList },
     { id: 'tables' as Tab, label: 'Tables', icon: Table2 },
-    { id: 'activity' as Tab, label: 'Activity', icon: History },
-    { id: 'float' as Tab, label: 'Float', icon: DollarSign },
-    { id: 'menu' as Tab, label: 'Menu', icon: UtensilsCrossed },
-    { id: 'sales' as Tab, label: 'Sales', icon: BarChart3 },
-    { id: 'performance' as Tab, label: 'Vibe', icon: Sparkles },
+    { id: 'menu' as Tab, label: 'Menu Catalog', icon: UtensilsCrossed },
   ];
 
   const handleAddFromMenu = (item: { name: string; price: number }) => {
@@ -160,24 +159,38 @@ export const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/40">
       {/* Header */}
-      <header className="sticky top-0 z-40 backdrop-blur-md bg-card/80 border-b border-border/50">
+      <header className="sticky top-0 z-40 backdrop-blur-md bg-card/85 border-b border-border/60 shadow-xs">
         <div className="px-3 sm:px-6 py-2.5 sm:py-3 max-w-4xl mx-auto">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            {/* Clickable Profile Card Button */}
+            <button
+              type="button"
+              onClick={() => setIsProfileOpen(true)}
+              className="flex items-center gap-2.5 sm:gap-3 min-w-0 p-1.5 -m-1.5 rounded-2xl hover:bg-muted/80 active:scale-95 transition-all text-left cursor-pointer group"
+              title="Open Staff Profile, Shifts & Settings"
+              aria-label="Open staff profile and settings"
+            >
               <div className="relative shrink-0">
-                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gradient-brand flex items-center justify-center shadow-brand">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-brand flex items-center justify-center shadow-brand group-hover:ring-2 group-hover:ring-primary/50 transition-all">
                   <User className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                 </div>
-                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-primary border-2 border-card rounded-full" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-card rounded-full" />
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="font-semibold text-foreground text-xs sm:text-sm leading-tight truncate">{worker.full_name}</span>
-                <span className="text-[11px] sm:text-xs text-muted-foreground capitalize flex items-center gap-0.5 truncate">
-                  {worker.role.replace(/_/g, ' ')}
-                  <ChevronRight className="w-3 h-3 shrink-0" />
+                <div className="flex items-center gap-1">
+                  <span className="font-bold text-foreground text-xs sm:text-sm leading-tight truncate group-hover:text-primary transition-colors">
+                    {worker.full_name}
+                  </span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                </div>
+                <span className="text-[11px] sm:text-xs text-muted-foreground capitalize flex items-center gap-1.5 truncate">
+                  <span className="truncate">{worker.role.replace(/_/g, ' ')}</span>
+                  <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.2 rounded-md shrink-0">
+                    Profile & Shifts
+                  </span>
                 </span>
               </div>
-            </div>
+            </button>
 
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               <button
@@ -196,15 +209,28 @@ export const Dashboard = () => {
                   <VolumeX className="w-4 h-4 sm:w-5 sm:h-5" />
                 )}
               </button>
+
+              <button
+                type="button"
+                onClick={() => setIsProfileOpen(true)}
+                className="p-1.5 sm:p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-all active:scale-95"
+                title="Profile & Shift Settings"
+                aria-label="Profile and shift settings"
+              >
+                <SlidersHorizontal className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+
               <img
                 src={ramakosLogo}
                 alt="Ramakos"
                 className="h-7 sm:h-8 w-auto object-contain shrink-0"
               />
+
               <button
                 onClick={signOut}
                 className="p-1.5 sm:p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-all active:scale-95"
                 aria-label="Sign out"
+                title="Sign out"
               >
                 <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
@@ -213,11 +239,11 @@ export const Dashboard = () => {
         </div>
       </header>
 
-      {/* Tab Navigation */}
-      <nav className="sticky top-[53px] sm:top-[60px] z-30 px-2 sm:px-6 py-1.5 sm:py-2 bg-card/80 backdrop-blur-md border-b border-border/50">
-        <div className="max-w-4xl mx-auto overflow-x-auto no-scrollbar touch-pan-x">
-          <div className="flex gap-1 p-1 bg-muted/80 rounded-xl min-w-max sm:min-w-0">
-            {tabs.map(tab => {
+      {/* Streamlined Floor Navigation Bar */}
+      <nav className="sticky top-[53px] sm:top-[60px] z-30 px-2 sm:px-6 py-1.5 sm:py-2 bg-card/85 backdrop-blur-md border-b border-border/60">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex gap-1.5 p-1 bg-muted/80 rounded-2xl">
+            {primaryTabs.map(tab => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               const hasUnclaimed = tab.id === 'orders' && unclaimedOrders.length > 0;
@@ -227,9 +253,9 @@ export const Dashboard = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`relative flex-1 min-w-[58px] sm:min-w-0 flex flex-col items-center justify-center gap-1 py-1.5 px-2.5 sm:px-3 rounded-lg font-medium text-xs transition-all haptic ${
+                  className={`relative flex-1 flex flex-col items-center justify-center gap-1 py-2 px-3 rounded-xl font-semibold text-xs transition-all haptic ${
                     isActive
-                      ? 'bg-card shadow-sm text-primary font-semibold'
+                      ? 'bg-card shadow-sm text-primary font-bold'
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -245,7 +271,7 @@ export const Dashboard = () => {
                       </span>
                     ) : null}
                   </div>
-                  <span className="text-[11px] leading-none whitespace-nowrap">{tab.label}</span>
+                  <span className="text-xs leading-none whitespace-nowrap">{tab.label}</span>
                 </button>
               );
             })}
@@ -303,6 +329,16 @@ export const Dashboard = () => {
           setActiveIncomingOrder(null);
           setActiveTab('orders');
         }}
+      />
+
+      {/* Worker Profile, Shift & Settings Modal */}
+      <WorkerProfileModal
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+        worker={worker}
+        soundEnabled={soundEnabled}
+        onToggleSound={toggleSound}
+        onSignOut={signOut}
       />
     </div>
   );

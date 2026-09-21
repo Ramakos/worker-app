@@ -253,6 +253,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
 
       setWorkers(prev => prev.map(w => (w.id === workerId ? { ...w, has_pin: true } : w)));
+      if (currentWorker && currentWorker.id === workerId) {
+        const updated = { ...currentWorker, has_pin: true };
+        setCurrentWorker(updated);
+        localStorage.setItem('currentWorker', JSON.stringify(updated));
+      }
       return { success: true };
     } catch (err: any) {
       console.error('Error setting PIN:', err);
