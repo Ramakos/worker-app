@@ -55,7 +55,7 @@ export const ServedOrdersListCard: React.FC<ServedOrdersListCardProps> = ({ orde
                 </div>
               </div>
               <p className="font-semibold text-foreground text-sm">
-                GHS {Number(order.amount || 0).toFixed(2)}
+                GH₵ {Number(order.amount || 0).toFixed(2)}
               </p>
             </div>
           ))}

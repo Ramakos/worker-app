@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
-import { TrendingUp, Gift, Clock, RotateCcw } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { TrendingUp, Gift, Clock, RotateCcw, Sparkles } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { recordWorkerActivity } from '../lib/workerActivity';
+import { DateRangeFilter } from './common/DateRangeFilter';
+import { DateFilterState, matchesDateFilter } from '../lib/dateFilter';
 
 interface TipEntry {
   id: string;
@@ -19,6 +21,7 @@ interface SessionStats {
 
 export const PersonalPerformance = () => {
   const { currentWorker } = useAuth();
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'today' });
   const [stats, setStats] = useState<SessionStats>(() => {
     const saved = localStorage.getItem('personalStats');
     if (saved) {
@@ -38,6 +41,14 @@ export const PersonalPerformance = () => {
   useEffect(() => {
     localStorage.setItem('personalStats', JSON.stringify(stats));
   }, [stats]);
+
+  const filteredTips = useMemo(() => {
+    return stats.tipEntries.filter(t => matchesDateFilter(t.timestamp, dateFilter));
+  }, [stats.tipEntries, dateFilter]);
+
+  const periodTotalTips = useMemo(() => {
+    return filteredTips.reduce((acc, t) => acc + t.amount, 0);
+  }, [filteredTips]);
 
   const handleAddTip = () => {
     if (!tipInput || isNaN(parseFloat(tipInput))) return;
@@ -102,20 +113,33 @@ export const PersonalPerformance = () => {
     : `${minutes}m`;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Top Filter Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <h2 className="text-sm font-bold text-foreground">Shift Vibe & Personal Performance</h2>
+        </div>
+        <DateRangeFilter
+          value={dateFilter}
+          onChange={setDateFilter}
+          defaultPreset="today"
+        />
+      </div>
+
       {/* Tips Tracker */}
-      <div className="card p-6">
+      <div className="bg-card rounded-2xl shadow-sm p-4 sm:p-5 border border-border">
         <div className="flex items-center space-x-3 mb-4">
-          <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-            <Gift className="w-5 h-5 text-primary-foreground" />
+          <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center shrink-0">
+            <Gift className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-sm font-medium text-muted-foreground">Tips Tracker</p>
-            <p className="text-2xl font-bold text-foreground">GHS {stats.totalTips.toFixed(2)}</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tips Tracker</p>
+            <p className="text-xl sm:text-2xl font-bold text-foreground">GH₵ {periodTotalTips.toFixed(2)}</p>
           </div>
         </div>
         <p className="text-xs text-muted-foreground mb-4">
-          {stats.tipEntries.length} tip{stats.tipEntries.length !== 1 ? 's' : ''} logged
+          {filteredTips.length} tip{filteredTips.length !== 1 ? 's' : ''} logged in selected period
         </p>
 
         {/* Add Tip */}
@@ -150,15 +174,15 @@ export const PersonalPerformance = () => {
         )}
 
         {/* Tip History */}
-        {showTipHistory && stats.tipEntries.length > 0 && (
+        {showTipHistory && filteredTips.length > 0 && (
           <div className="mt-3 space-y-2 bg-muted rounded-lg border border-border p-3">
-            {[...stats.tipEntries].reverse().map(entry => (
+            {[...filteredTips].reverse().map(entry => (
               <div
                 key={entry.id}
                 className="flex items-center justify-between text-sm"
               >
                 <span className="text-foreground">
-                  GHS {entry.amount.toFixed(2)} at {new Date(entry.timestamp).toLocaleTimeString([], {
+                  GH₵ {entry.amount.toFixed(2)} at {new Date(entry.timestamp).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
                   })}
@@ -204,11 +228,11 @@ export const PersonalPerformance = () => {
         <div className="space-y-3">
           {/* Tips Performance */}
           <div className="p-3 bg-muted rounded-lg border border-border">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Tips Earned</p>
-            <p className="text-lg font-bold text-foreground">GHS {stats.totalTips.toFixed(2)}</p>
+            <p className="text-xs font-medium text-muted-foreground mb-1">Period Tips</p>
+            <p className="text-lg font-bold text-foreground">GH₵ {periodTotalTips.toFixed(2)}</p>
             {sessionDuration > 0 && (
               <p className="text-xs text-muted-foreground mt-1">
-                ~GHS {(stats.totalTips / (sessionDuration / 60)).toFixed(2)}/hour
+                ~GH₵ {(periodTotalTips / (sessionDuration / 60)).toFixed(2)}/hour
               </p>
             )}
           </div>
@@ -228,12 +252,12 @@ export const PersonalPerformance = () => {
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>
                 <p className="text-muted-foreground">Tip Entries</p>
-                <p className="font-bold text-foreground">{stats.tipEntries.length}</p>
+                <p className="font-bold text-foreground">{filteredTips.length}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Avg Tip</p>
                 <p className="font-bold text-foreground">
-                  GHS {(stats.tipEntries.length > 0 ? stats.totalTips / stats.tipEntries.length : 0).toFixed(2)}
+                  GH₵ {(filteredTips.length > 0 ? periodTotalTips / filteredTips.length : 0).toFixed(2)}
                 </p>
               </div>
             </div>

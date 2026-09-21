@@ -27,7 +27,7 @@ export const SalesMetricsCards: React.FC<SalesMetricsCardsProps> = ({
           <TrendingUp className="w-4 h-4 text-primary" />
         </div>
         <p className="text-xs text-muted-foreground mb-0.5">Sales</p>
-        <p className="text-lg font-bold text-foreground">GHS {totalSales.toFixed(2)}</p>
+        <p className="text-lg font-bold text-foreground">GH₵ {totalSales.toFixed(2)}</p>
       </div>
 
       <div className="card p-3 text-center">
@@ -35,7 +35,7 @@ export const SalesMetricsCards: React.FC<SalesMetricsCardsProps> = ({
           <Receipt className="w-4 h-4 text-accent-foreground" />
         </div>
         <p className="text-xs text-muted-foreground mb-0.5">Avg</p>
-        <p className="text-lg font-bold text-foreground">GHS {averageOrderValue.toFixed(2)}</p>
+        <p className="text-lg font-bold text-foreground">GH₵ {averageOrderValue.toFixed(2)}</p>
       </div>
     </div>
   );

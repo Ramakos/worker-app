@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Clock,
   CheckCircle2,
@@ -9,13 +9,13 @@ import {
   LogOut,
   RotateCcw,
   Sparkles,
-  Filter,
-  ShieldCheck,
   Receipt,
   Trash2,
 } from 'lucide-react';
 import { useWorkerActivity } from '../hooks/useWorkerActivity';
-import { WorkerActivityItem, WorkerActivityType } from '../types';
+import { WorkerActivityType } from '../types';
+import { DateRangeFilter } from './common/DateRangeFilter';
+import { DateFilterState, matchesDateFilter } from '../lib/dateFilter';
 
 interface WorkerActivityTimelineProps {
   workerId: string;
@@ -34,17 +34,51 @@ const formatTimeAgo = (timestamp: string): string => {
 };
 
 export const WorkerActivityTimeline = ({ workerId }: WorkerActivityTimelineProps) => {
-  const { activities, stats, clearActivities } = useWorkerActivity(workerId);
+  const { activities, clearActivities } = useWorkerActivity(workerId);
   const [filter, setFilter] = useState<ActivityFilter>('all');
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'today' });
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
-  const filteredActivities = activities.filter(item => {
-    if (filter === 'all') return true;
-    if (filter === 'orders') return item.type === 'order_claimed' || item.type === 'order_status';
-    if (filter === 'float') return item.type === 'float_taken' || item.type === 'float_returned';
-    if (filter === 'tables') return item.type === 'table_order';
-    return true;
-  });
+  const dateFilteredActivities = useMemo(() => {
+    return activities.filter(item => matchesDateFilter(item.timestamp, dateFilter));
+  }, [activities, dateFilter]);
+
+  const filteredActivities = useMemo(() => {
+    return dateFilteredActivities.filter(item => {
+      if (filter === 'all') return true;
+      if (filter === 'orders') return item.type === 'order_claimed' || item.type === 'order_status';
+      if (filter === 'float') return item.type === 'float_taken' || item.type === 'float_returned';
+      if (filter === 'tables') return item.type === 'table_order';
+      return true;
+    });
+  }, [dateFilteredActivities, filter]);
+
+  const periodStats = useMemo(() => {
+    let ordersClaimed = 0;
+    let ordersServed = 0;
+    let totalSalesValue = 0;
+    let floatTakenTotal = 0;
+    let floatReturnedTotal = 0;
+
+    for (const a of dateFilteredActivities) {
+      if (a.type === 'order_claimed') ordersClaimed++;
+      if (a.type === 'order_status' && a.status === 'served') {
+        ordersServed++;
+        if (a.amount) totalSalesValue += a.amount;
+      }
+      if (a.type === 'float_taken' && a.amount) floatTakenTotal += a.amount;
+      if (a.type === 'float_returned' && a.amount) floatReturnedTotal += a.amount;
+    }
+
+    return {
+      totalActions: dateFilteredActivities.length,
+      ordersClaimed,
+      ordersServed,
+      totalSalesValue,
+      floatTakenTotal,
+      floatReturnedTotal,
+    };
+  }, [dateFilteredActivities]);
 
   const getActivityIcon = (type: WorkerActivityType, status?: string | null) => {
     switch (type) {
@@ -128,8 +162,8 @@ export const WorkerActivityTimeline = ({ workerId }: WorkerActivityTimelineProps
 
   return (
     <div className="space-y-4">
-      {/* Header & Persistence Badge */}
-      <div className="flex items-center justify-between">
+      {/* Header & Date Filter Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         <div>
           <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-primary" /> My Shift Activity Log
@@ -139,15 +173,16 @@ export const WorkerActivityTimeline = ({ workerId }: WorkerActivityTimelineProps
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-[10px] font-medium">
-            <ShieldCheck className="w-3 h-3" />
-            <span>Persisted Locally</span>
-          </div>
+        <div className="flex items-center justify-between sm:justify-end gap-2">
+          <DateRangeFilter
+            value={dateFilter}
+            onChange={setDateFilter}
+            defaultPreset="today"
+          />
           {activities.length > 0 && (
             <button
               onClick={() => setShowClearConfirm(true)}
-              className="p-1 text-muted-foreground hover:text-destructive rounded-lg transition-colors"
+              className="p-1.5 text-muted-foreground hover:text-destructive rounded-xl border border-border/70 hover:bg-muted transition-colors shrink-0"
               title="Clear Log"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -181,25 +216,25 @@ export const WorkerActivityTimeline = ({ workerId }: WorkerActivityTimelineProps
       )}
 
       {/* KPI Stats Grid */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div className="bg-card p-2.5 rounded-xl border border-border text-center">
           <span className="text-[10px] font-medium text-muted-foreground uppercase">Actions</span>
-          <p className="text-base font-bold text-foreground">{stats.totalActions}</p>
+          <p className="text-base font-bold text-foreground">{periodStats.totalActions}</p>
         </div>
         <div className="bg-card p-2.5 rounded-xl border border-border text-center">
           <span className="text-[10px] font-medium text-muted-foreground uppercase">Served</span>
-          <p className="text-base font-bold text-emerald-600">{stats.ordersServed}</p>
+          <p className="text-base font-bold text-emerald-600">{periodStats.ordersServed}</p>
         </div>
         <div className="bg-card p-2.5 rounded-xl border border-border text-center">
           <span className="text-[10px] font-medium text-muted-foreground uppercase">Sales Value</span>
           <p className="text-base font-bold text-primary truncate">
-            {stats.totalSalesValue > 0 ? `GH₵${stats.totalSalesValue.toFixed(0)}` : 'GH₵0'}
+            {periodStats.totalSalesValue > 0 ? `GH₵${periodStats.totalSalesValue.toFixed(0)}` : 'GH₵0'}
           </p>
         </div>
         <div className="bg-card p-2.5 rounded-xl border border-border text-center">
           <span className="text-[10px] font-medium text-muted-foreground uppercase">Net Float</span>
           <p className="text-base font-bold text-blue-600 truncate">
-            GH₵{(stats.floatTakenTotal - stats.floatReturnedTotal).toFixed(0)}
+            GH₵{(periodStats.floatTakenTotal - periodStats.floatReturnedTotal).toFixed(0)}
           </p>
         </div>
       </div>
@@ -208,8 +243,8 @@ export const WorkerActivityTimeline = ({ workerId }: WorkerActivityTimelineProps
       <div className="flex gap-1 p-1 bg-muted/60 rounded-xl">
         {(
           [
-            { id: 'all', label: `All (${activities.length})` },
-            { id: 'orders', label: `Orders (${stats.ordersClaimed + stats.ordersServed})` },
+            { id: 'all', label: `All (${dateFilteredActivities.length})` },
+            { id: 'orders', label: `Orders (${periodStats.ordersClaimed + periodStats.ordersServed})` },
             { id: 'float', label: 'Float' },
             { id: 'tables', label: 'Tables' },
           ] as const
@@ -217,7 +252,7 @@ export const WorkerActivityTimeline = ({ workerId }: WorkerActivityTimelineProps
           <button
             key={tab.id}
             onClick={() => setFilter(tab.id)}
-            className={`flex-1 py-1 px-2 rounded-lg text-xs font-medium transition-all ${
+            className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition-all ${
               filter === tab.id
                 ? 'bg-card text-foreground shadow-sm font-semibold'
                 : 'text-muted-foreground hover:text-foreground'

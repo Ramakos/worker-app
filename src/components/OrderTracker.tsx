@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ClipboardList, Clock, ChefHat, CheckCircle, Truck, Users, RefreshCw, UserCheck } from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
 import { useToast } from './Toast';
 import { Order } from '../types';
+import { DateRangeFilter } from './common/DateRangeFilter';
+import { DateFilterState, matchesDateFilter } from '../lib/dateFilter';
 
 interface OrderTrackerProps {
   workerId?: string;
@@ -11,6 +13,7 @@ interface OrderTrackerProps {
 
 export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
   const [activeView, setActiveView] = useState<'all' | 'personal'>('all');
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'today' });
   const { allOrders, personalOrders, isLoading, updateOrderStatus, assignOrder, refreshOrders } = useOrders(workerId);
   const { toast } = useToast();
 
@@ -53,7 +56,15 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
     }
   };
 
-  const orders = activeView === 'all' ? allOrders : personalOrders;
+  const allFilteredOrders = useMemo(() => {
+    return allOrders.filter(o => matchesDateFilter(o.created_at, dateFilter));
+  }, [allOrders, dateFilter]);
+
+  const personalFilteredOrders = useMemo(() => {
+    return personalOrders.filter(o => matchesDateFilter(o.created_at, dateFilter));
+  }, [personalOrders, dateFilter]);
+
+  const orders = activeView === 'all' ? allFilteredOrders : personalFilteredOrders;
 
   const getStatusIcon = (status: Order['status']) => {
     switch (status) {
@@ -114,7 +125,7 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
     <div className="space-y-4">
       {/* Header & Status KPI Grid */}
       <div className="bg-card rounded-2xl shadow-sm p-4 sm:p-5 border border-border">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div className="flex flex-col gap-3 mb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
@@ -128,23 +139,15 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
             <button
               onClick={handleRefresh}
               disabled={isLoading}
-              className="sm:hidden p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-colors disabled:opacity-50 haptic"
+              className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-colors disabled:opacity-50 haptic"
               aria-label="Refresh orders"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleRefresh}
-              disabled={isLoading}
-              className="hidden sm:flex p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-colors disabled:opacity-50 haptic"
-              aria-label="Refresh orders"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            </button>
-
+          {/* Filters Bar: All/Mine + Date Filter */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1 border-t border-border/50">
             <div className="flex bg-muted p-1 rounded-xl w-full sm:w-auto">
               <button
                 onClick={() => setActiveView('all')}
@@ -155,7 +158,7 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
                 }`}
               >
                 <Users className="w-3.5 h-3.5 inline mr-1" />
-                All ({allOrders.length})
+                All ({allFilteredOrders.length})
               </button>
               <button
                 onClick={() => setActiveView('personal')}
@@ -166,9 +169,15 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
                 }`}
               >
                 <UserCheck className="w-3.5 h-3.5 inline mr-1" />
-                Mine ({personalOrders.length})
+                Mine ({personalFilteredOrders.length})
               </button>
             </div>
+
+            <DateRangeFilter
+              value={dateFilter}
+              onChange={setDateFilter}
+              defaultPreset="today"
+            />
           </div>
         </div>
 
@@ -272,7 +281,7 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
                     <div className="flex items-center gap-2">
                       {!order.claimed_by && (
                         <button
-                          onClick={() => handleClaim(order.id, order.order_number)}
+                          onClick={() => handleClaim(order.id, (order as any).order_number || order.id)}
                           className="flex-1 sm:flex-none px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-xl text-xs font-semibold transition-all haptic"
                         >
                           Claim
@@ -281,7 +290,7 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
 
                       {order.status !== 'served' && order.status !== 'delivered' && (
                         <button
-                          onClick={() => handleAdvanceStatus(order.id, order.status, order.order_number)}
+                          onClick={() => handleAdvanceStatus(order.id, order.status, (order as any).order_number || order.id)}
                           className="flex-1 sm:flex-none px-3.5 py-1.5 bg-primary hover:bg-brand-dark text-primary-foreground rounded-xl text-xs font-semibold shadow-sm transition-all haptic"
                         >
                           {getNextStatusLabel(order.status)}

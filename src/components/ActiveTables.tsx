@@ -34,8 +34,6 @@ export const ActiveTables = () => {
     handleAddTable,
     handleAddItem,
     handleRemoveItem,
-    handleUndoLastItem,
-    handleClearItems,
     handleUpdateQuantity,
     handleUpdateNotes,
     getTimeSince,

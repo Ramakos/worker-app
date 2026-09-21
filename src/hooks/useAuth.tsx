@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Worker } from '../types';
 import { recordWorkerActivity } from '../lib/workerActivity';
@@ -9,7 +9,21 @@ import {
   validateStoredSession,
 } from '../lib/authService';
 
-export const useAuth = () => {
+interface AuthContextType {
+  currentWorker: Worker | null;
+  isLoading: boolean;
+  signIn: (workerIdOrEmail: string, password: string) => Promise<{ success?: boolean; error?: string }>;
+  signInWithPin: (workerIdOrPin: string, pin?: string) => Promise<{ success?: boolean; error?: string }>;
+  setWorkerPin: (workerId: string, pin: string) => Promise<{ success?: boolean; error?: string }>;
+  signOut: () => Promise<void>;
+  devSignIn: () => void;
+  workers: Worker[];
+  fetchWorkers: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Synchronously hydrate from localStorage to prevent login flicker on reload
   const [currentWorker, setCurrentWorker] = useState<Worker | null>(() => {
     try {
@@ -327,15 +341,29 @@ export const useAuth = () => {
     };
   }, []);
 
-  return {
-    currentWorker,
-    isLoading,
-    signIn,
-    signInWithPin,
-    setWorkerPin,
-    signOut,
-    devSignIn,
-    workers,
-    fetchWorkers,
-  };
+  return (
+    <AuthContext.Provider
+      value={{
+        currentWorker,
+        isLoading,
+        signIn,
+        signInWithPin,
+        setWorkerPin,
+        signOut,
+        devSignIn,
+        workers,
+        fetchWorkers,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = (): AuthContextType => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };

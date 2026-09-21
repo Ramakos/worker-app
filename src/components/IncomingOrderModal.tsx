@@ -1,5 +1,5 @@
-﻿import React from 'react';
-import { Bell, ChefHat, Check, X, ArrowRight, ShoppingBag, Clock } from 'lucide-react';
+import React from 'react';
+import { Bell, ChefHat, Check, ArrowRight, ShoppingBag, Clock } from 'lucide-react';
 import { Order } from '../types';
 
 interface IncomingOrderModalProps {

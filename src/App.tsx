@@ -1,7 +1,7 @@
 import { Dashboard } from './components/Dashboard';
 import { SignIn } from './components/SignIn';
 import { ToastProvider } from './components/Toast';
-import { useAuth } from './hooks/useAuth';
+import { AuthProvider, useAuth } from './hooks/useAuth';
 
 function AppContent() {
   const { currentWorker } = useAuth();
@@ -16,7 +16,9 @@ function AppContent() {
 function App() {
   return (
     <ToastProvider>
-      <AppContent />
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </ToastProvider>
   );
 }

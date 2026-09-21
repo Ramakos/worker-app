@@ -19,6 +19,10 @@ interface ToastContextType {
     info: (title: string, message?: string, duration?: number) => void;
     warning: (title: string, message?: string, duration?: number) => void;
   };
+  success: (title: string, message?: string, duration?: number) => void;
+  error: (title: string, message?: string, duration?: number) => void;
+  info: (title: string, message?: string, duration?: number) => void;
+  warning: (title: string, message?: string, duration?: number) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -86,7 +90,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <ToastContext.Provider value={{ showToast, toast: toastHelpers }}>
+    <ToastContext.Provider value={{ showToast, toast: toastHelpers, ...toastHelpers }}>
       {children}
       <div
         aria-live="polite"

@@ -2,7 +2,7 @@ import React from 'react';
 
 interface Shift {
   id: string;
-  amount_taken_float?: number;
+  amount_taken_float?: number | null;
   amount_returned_float: number | null;
   started_at: string;
   ended_at?: string | null;

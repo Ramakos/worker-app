@@ -1,4 +1,4 @@
-import { WorkerActivityItem, WorkerActivityType } from '../types';
+import { WorkerActivityItem } from '../types';
 
 const ACTIVITY_PREFIX = 'worker_activity_';
 const MAX_LOG_ITEMS = 150;

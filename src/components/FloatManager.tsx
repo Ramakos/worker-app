@@ -1,11 +1,13 @@
-import { useState } from 'react';
-import { DollarSign } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { DollarSign, History } from 'lucide-react';
 import { useFloat } from '../hooks/useFloat';
 import { useToast } from './Toast';
 import { ActiveFloatCard } from './floatManager/ActiveFloatCard';
 import { NoActiveFloatCard } from './floatManager/NoActiveFloatCard';
 import { FloatTransactionsCard } from './floatManager/FloatTransactionsCard';
 import { ShiftHistoryCard } from './floatManager/ShiftHistoryCard';
+import { DateRangeFilter } from './common/DateRangeFilter';
+import { DateFilterState, matchesDateFilter } from '../lib/dateFilter';
 
 interface FloatManagerProps {
   workerId?: string;
@@ -15,6 +17,7 @@ export const FloatManager = ({ workerId }: FloatManagerProps) => {
   const [floatAmount, setFloatAmount] = useState('');
   const [returnAmount, setReturnAmount] = useState('');
   const [error, setError] = useState('');
+  const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'this_month' });
   const { toast } = useToast();
   const {
     currentShift,
@@ -28,6 +31,14 @@ export const FloatManager = ({ workerId }: FloatManagerProps) => {
     returnFloat,
     endShift,
   } = useFloat(workerId);
+
+  const filteredTransactions = useMemo(() => {
+    return floatTransactions.filter(t => matchesDateFilter(t.created_at, dateFilter));
+  }, [floatTransactions, dateFilter]);
+
+  const filteredShifts = useMemo(() => {
+    return shiftHistory.filter(s => matchesDateFilter(s.started_at, dateFilter));
+  }, [shiftHistory, dateFilter]);
 
   const handleTakeFloat = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,11 +141,25 @@ export const FloatManager = ({ workerId }: FloatManagerProps) => {
         )}
       </div>
 
+      {/* History Header with Date Filter */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2">
+        <div className="flex items-center gap-2">
+          <History className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-bold text-foreground">Float & Shift Records</h3>
+        </div>
+        <DateRangeFilter
+          value={dateFilter}
+          onChange={setDateFilter}
+          defaultPreset="this_month"
+        />
+      </div>
+
       {/* Float Transaction History */}
-      <FloatTransactionsCard transactions={floatTransactions} />
+      <FloatTransactionsCard transactions={filteredTransactions} />
 
       {/* Shift History */}
-      <ShiftHistoryCard shifts={shiftHistory} />
+      <ShiftHistoryCard shifts={filteredShifts} />
     </div>
   );
 };
+
