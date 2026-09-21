@@ -8,7 +8,6 @@ import {
   LogIn,
   LogOut,
   RotateCcw,
-  Sparkles,
   Receipt,
   Trash2,
 } from 'lucide-react';
@@ -166,7 +165,7 @@ export const WorkerActivityTimeline = ({ workerId }: WorkerActivityTimelineProps
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         <div>
           <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-primary" /> My Shift Activity Log
+            <ClipboardList className="w-4 h-4 text-primary" /> My Shift Activity Log
           </h2>
           <p className="text-[11px] text-muted-foreground">
             Local real-time journal of your orders, tables, and float movements.

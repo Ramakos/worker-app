@@ -159,24 +159,49 @@ export const useSales = (
         ? new Date(Math.min(monthStart.getTime(), customDateRange.start.getTime()))
         : monthStart;
 
-      const { data, error } = await supabase
+      // 1. Fetch from worker_orders
+      const { data: woData, error: woError } = await supabase
         .from('worker_orders')
         .select('*')
         .eq('worker_id', workerId)
         .gte('created_at', fetchStart.toISOString())
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (woError) throw woError;
 
-      const rows: WorkerOrderLog[] = (data || []).map(r => ({
-        id: r.id,
-        order_id: r.order_id,
-        worker_id: r.worker_id,
-        action: r.action,
-        amount: r.amount,
-        mode: r.mode,
-        created_at: r.created_at,
-      }));
+      // 2. Query orders table for any served orders claimed by this worker
+      const { data: directOrdersData } = await (supabase as any)
+        .from('orders')
+        .select('id, total_paid, payment_method, order_type, status, created_at, claimed_at, ready_at')
+        .eq('claimed_by', workerId)
+        .eq('status', 'served')
+        .gte('created_at', fetchStart.toISOString())
+        .order('created_at', { ascending: false });
+
+      const existingOrderIds = new Set((woData || []).map(r => r.order_id));
+      const fallbackRows: WorkerOrderLog[] = (directOrdersData || [])
+        .filter((o: any) => !existingOrderIds.has(o.id))
+        .map((o: any) => ({
+          id: `direct_order_${o.id}`,
+          order_id: o.id,
+          worker_id: workerId,
+          action: 'served',
+          amount: o.total_paid != null ? Number(o.total_paid) : null,
+          mode: o.payment_method || o.order_type || null,
+          created_at: o.claimed_at || o.created_at,
+        }));
+
+      const rows: WorkerOrderLog[] = [...(woData || []), ...fallbackRows]
+        .map(r => ({
+          id: r.id,
+          order_id: r.order_id,
+          worker_id: r.worker_id,
+          action: r.action,
+          amount: r.amount != null ? Number(r.amount) : null,
+          mode: r.mode,
+          created_at: r.created_at,
+        }))
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
       const todayRows = rows.filter(r => new Date(r.created_at) >= dayStart);
       const weekRows = rows.filter(r => new Date(r.created_at) >= weekStart);
@@ -234,15 +259,26 @@ export const useSales = (
 
     if (!workerId) return;
 
-    const subscription = supabase
-      .channel('worker_orders_sales')
+    const subWo = supabase
+      .channel(`worker_orders_sales_${workerId}`)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'worker_orders', filter: `worker_id=eq.${workerId}` },
         () => { fetchSales(); }
       )
       .subscribe();
 
-    return () => { subscription.unsubscribe(); };
+    const subOrders = supabase
+      .channel(`orders_sales_${workerId}`)
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        () => { fetchSales(); }
+      )
+      .subscribe();
+
+    return () => {
+      subWo.unsubscribe();
+      subOrders.unsubscribe();
+    };
   }, [fetchSales, workerId]);
 
   return { salesData, isLoading, refreshSales: fetchSales };

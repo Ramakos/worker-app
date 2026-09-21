@@ -32,7 +32,21 @@ export const DashboardSummary = ({ workerId }: DashboardSummaryProps) => {
     return () => clearInterval(interval);
   }, [currentShift]);
 
-  if (!currentShift) return null;
+  if (!currentShift) {
+    return (
+      <div className="bg-card rounded-2xl shadow-sm p-4 border border-dashed border-border flex items-center gap-3 mb-3 sm:mb-4">
+        <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          <Clock className="w-5 h-5" />
+        </div>
+        <div>
+          <h4 className="text-xs font-bold text-foreground">No Shift Clocked In</h4>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Open your cash float below to start shift tracking and record transactions.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const servedOrders = personalOrders.filter(o => o.status === 'served').length;
   const activeOrders = personalOrders.filter(o => o.status !== 'served').length;

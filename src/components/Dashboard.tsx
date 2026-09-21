@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { User, LogOut, UtensilsCrossed, Table2, ChevronRight, ClipboardList, Volume2, VolumeX, SlidersHorizontal } from 'lucide-react';
+import { User, ChevronDown, UtensilsCrossed, Table2, ClipboardList, Volume2, VolumeX } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useOrders } from '../hooks/useOrders';
 import ramakosLogo from '../assets/ramakos-logo.png';
@@ -162,40 +162,34 @@ export const Dashboard = () => {
       <header className="sticky top-0 z-40 backdrop-blur-md bg-card/85 border-b border-border/60 shadow-xs">
         <div className="px-3 sm:px-6 py-2.5 sm:py-3 max-w-4xl mx-auto">
           <div className="flex items-center justify-between">
-            {/* Clickable Profile Card Button */}
+            {/* Sleek Touch-Friendly Profile Chip */}
             <button
               type="button"
               onClick={() => setIsProfileOpen(true)}
-              className="flex items-center gap-2.5 sm:gap-3 min-w-0 p-1.5 -m-1.5 rounded-2xl hover:bg-muted/80 active:scale-95 transition-all text-left cursor-pointer group"
+              className="flex items-center gap-2 sm:gap-2.5 py-1 px-1.5 pr-2.5 sm:pr-3 rounded-full bg-secondary/60 hover:bg-secondary border border-border/60 active:scale-95 transition-all text-left cursor-pointer group shrink-0"
               title="Open Staff Profile, Shifts & Settings"
               aria-label="Open staff profile and settings"
             >
               <div className="relative shrink-0">
-                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-brand flex items-center justify-center shadow-brand group-hover:ring-2 group-hover:ring-primary/50 transition-all">
-                  <User className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-brand flex items-center justify-center shadow-xs group-hover:ring-2 group-hover:ring-primary/40 transition-all">
+                  <User className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-primary-foreground" />
                 </div>
-                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-card rounded-full" />
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-card rounded-full ring-1 ring-emerald-400/30" />
               </div>
-              <div className="flex flex-col min-w-0">
-                <div className="flex items-center gap-1">
-                  <span className="font-bold text-foreground text-xs sm:text-sm leading-tight truncate group-hover:text-primary transition-colors">
-                    {worker.full_name}
-                  </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-                </div>
-                <span className="text-[11px] sm:text-xs text-muted-foreground capitalize flex items-center gap-1.5 truncate">
-                  <span className="truncate">{worker.role.replace(/_/g, ' ')}</span>
-                  <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.2 rounded-md shrink-0">
-                    Profile & Shifts
-                  </span>
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="font-bold text-foreground text-xs sm:text-sm truncate max-w-[120px] xs:max-w-[160px] sm:max-w-[200px] group-hover:text-primary transition-colors">
+                  {worker.full_name}
                 </span>
+                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
               </div>
             </button>
 
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Right Action Controls: Audio Chime & Ramakos Brand Logo */}
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <button
+                type="button"
                 onClick={toggleSound}
-                className={`p-1.5 sm:p-2 rounded-xl transition-all active:scale-95 ${
+                className={`p-2 rounded-xl transition-all active:scale-95 ${
                   soundEnabled
                     ? 'text-primary bg-primary/10 hover:bg-primary/20'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -210,30 +204,11 @@ export const Dashboard = () => {
                 )}
               </button>
 
-              <button
-                type="button"
-                onClick={() => setIsProfileOpen(true)}
-                className="p-1.5 sm:p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-all active:scale-95"
-                title="Profile & Shift Settings"
-                aria-label="Profile and shift settings"
-              >
-                <SlidersHorizontal className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-
               <img
                 src={ramakosLogo}
                 alt="Ramakos"
-                className="h-7 sm:h-8 w-auto object-contain shrink-0"
+                className="h-6 sm:h-7.5 w-auto object-contain shrink-0"
               />
-
-              <button
-                onClick={signOut}
-                className="p-1.5 sm:p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-all active:scale-95"
-                aria-label="Sign out"
-                title="Sign out"
-              >
-                <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
             </div>
           </div>
         </div>

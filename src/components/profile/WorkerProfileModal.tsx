@@ -4,7 +4,7 @@ import {
   User,
   DollarSign,
   BarChart3,
-  Sparkles,
+  Heart,
   History,
   Settings,
   KeyRound,
@@ -15,9 +15,11 @@ import {
   Check,
   AlertCircle,
   Play,
+  Copy,
 } from 'lucide-react';
 import { Worker } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
+import { useFloat } from '../../hooks/useFloat';
 import { useToast } from '../Toast';
 import { DashboardSummary } from '../DashboardSummary';
 import { FloatManager } from '../FloatManager';
@@ -47,15 +49,28 @@ export const WorkerProfileModal: React.FC<WorkerProfileModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<ProfileSubTab>('shift');
   const { setWorkerPin, fetchWorkers } = useAuth();
+  const { currentShift, netFloat } = useFloat(worker.id);
   const { toast } = useToast();
 
-  // Settings State: Quick PIN change
+  // Settings State: Quick PIN change & Profile Copy
+  const [copiedId, setCopiedId] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinConfirm, setPinConfirm] = useState('');
   const [pinError, setPinError] = useState('');
   const [pinSuccess, setPinSuccess] = useState('');
   const [isSavingPin, setIsSavingPin] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleCopyId = (idToCopy: string) => {
+    try {
+      navigator.clipboard?.writeText(idToCopy);
+      setCopiedId(true);
+      toast.info('Copied to Clipboard', `Staff ID ${idToCopy} copied.`);
+      setTimeout(() => setCopiedId(false), 2000);
+    } catch {
+      // ignore
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -122,7 +137,7 @@ export const WorkerProfileModal: React.FC<WorkerProfileModalProps> = ({
   const subTabs = [
     { id: 'shift' as ProfileSubTab, label: 'Shift & Float', icon: DollarSign },
     { id: 'sales' as ProfileSubTab, label: 'My Sales', icon: BarChart3 },
-    { id: 'vibe' as ProfileSubTab, label: 'Tips & Vibe', icon: Sparkles },
+    { id: 'vibe' as ProfileSubTab, label: 'Tips & Vibe', icon: Heart },
     { id: 'activity' as ProfileSubTab, label: 'Activity', icon: History },
     { id: 'settings' as ProfileSubTab, label: 'Settings', icon: Settings },
   ];
@@ -230,6 +245,86 @@ export const WorkerProfileModal: React.FC<WorkerProfileModalProps> = ({
 
           {activeTab === 'settings' && (
             <div className="space-y-4 fade-in max-w-xl mx-auto">
+              {/* Staff Profile & Identity Card */}
+              <div className="bg-gradient-to-br from-card via-card to-secondary/30 rounded-2xl p-4 sm:p-5 border border-border shadow-xs">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="relative shrink-0">
+                      <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-brand flex items-center justify-center shadow-brand">
+                        <User className="w-6 h-6 sm:w-7 sm:h-7 text-primary-foreground" />
+                      </div>
+                      <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-card rounded-full ring-2 ring-emerald-500/20" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-bold text-base sm:text-lg text-foreground truncate">
+                          {worker.full_name}
+                        </h3>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wide shrink-0 ${getRoleBadgeColor(
+                            worker.role
+                          )}`}
+                        >
+                          {worker.role.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">{worker.username}</p>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 text-right">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Active Staff
+                    </span>
+                  </div>
+                </div>
+
+                {/* Identity Metadata Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2.5 bg-muted/40 rounded-xl border border-border/50 text-xs">
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-card/70 border border-border/40">
+                    <span className="text-muted-foreground">Worker ID</span>
+                    <div className="flex items-center gap-1.5 font-mono font-bold text-foreground">
+                      <span>{worker.worker_id || `#STF-${worker.id.slice(0, 6).toUpperCase()}`}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyId(worker.worker_id || worker.id)}
+                        className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
+                        title="Copy Worker ID"
+                        aria-label="Copy Worker ID"
+                      >
+                        {copiedId ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-card/70 border border-border/40">
+                    <span className="text-muted-foreground">Auth Security</span>
+                    <span className="font-semibold text-foreground capitalize">
+                      {worker.has_pin ? 'PIN + Password' : 'Password Only'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-card/70 border border-border/40">
+                    <span className="text-muted-foreground">Active Shift</span>
+                    <span className="font-semibold text-foreground flex items-center gap-1">
+                      {currentShift ? (
+                        <span className="text-emerald-600 font-bold">● Active on Floor</span>
+                      ) : (
+                        <span className="text-muted-foreground">○ Not Clocked In</span>
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-card/70 border border-border/40">
+                    <span className="text-muted-foreground">Net Float</span>
+                    <span className="font-bold text-foreground font-mono">
+                      GH₵ {netFloat.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               {/* Quick PIN Card */}
               <div className="bg-card rounded-2xl shadow-sm p-4 sm:p-5 border border-border">
                 <div className="flex items-center gap-2.5 mb-3">

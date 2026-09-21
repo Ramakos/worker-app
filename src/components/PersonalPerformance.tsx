@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { TrendingUp, Gift, Clock, RotateCcw, Sparkles } from 'lucide-react';
+import { TrendingUp, Gift, Clock, RotateCcw } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { recordWorkerActivity } from '../lib/workerActivity';
 import { DateRangeFilter } from './common/DateRangeFilter';
@@ -117,7 +117,7 @@ export const PersonalPerformance = () => {
       {/* Top Filter Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-primary" />
+          <TrendingUp className="w-4 h-4 text-primary" />
           <h2 className="text-sm font-bold text-foreground">Shift Vibe & Personal Performance</h2>
         </div>
         <DateRangeFilter
