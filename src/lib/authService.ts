@@ -13,48 +13,72 @@ export const DEV_WORKER: Worker = {
 
 export const fetchActiveWorkers = async (): Promise<Worker[]> => {
   try {
-    // 1. Fetch active worker profiles
-    const { data: profiles, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('id, full_name, username, worker_id, is_active, pin')
-      .eq('is_active', true);
-
-    if (profileError) throw profileError;
-
-    // 2. Query user_roles separately (to avoid missing FK relationship error PGRST200)
-    const rolesMap: Record<string, string> = {};
-    try {
-      const { data: rolesData } = await supabase
+    // Exact method as Admin Portal (staffService.ts): Parallel query for profiles and roles
+    const [profilesRes, rolesRes] = await Promise.all([
+      supabase
+        .from('user_profiles')
+        .select('id, full_name, username, worker_id, is_active, pin')
+        .order('full_name', { ascending: true }),
+      supabase
         .from('user_roles')
-        .select('user_id, role');
+        .select('user_id, role'),
+    ]);
 
-      if (rolesData) {
-        rolesData.forEach((r: any) => {
-          if (r.user_id && r.role) {
-            rolesMap[r.user_id] = r.role;
-          }
-        });
+    const rolesByUserId = new Map<string, string[]>();
+    if (rolesRes.data) {
+      for (const r of rolesRes.data as any[]) {
+        if (!r.user_id || !r.role) continue;
+        const current = rolesByUserId.get(r.user_id) || [];
+        current.push(r.role);
+        rolesByUserId.set(r.user_id, current);
       }
-    } catch (rolesErr) {
-      console.warn('Could not fetch user_roles (falling back to general_worker):', rolesErr);
     }
 
-    // 3. Combine profiles and roles
-    return (
-      profiles?.map(user => ({
-        id: user.id,
-        full_name: user.full_name || user.username,
-        username: user.username,
-        worker_id: user.worker_id,
-        role: (rolesMap[user.id] || 'general_worker') as any,
-        is_active: user.is_active !== false,
-        has_pin: Boolean(user.pin),
-      })) || []
-    );
+    if (profilesRes.data && profilesRes.data.length > 0) {
+      const activeWorkers: Worker[] = profilesRes.data
+        .filter((u: any) => u.is_active !== false)
+        .map((u: any) => {
+          const userRoles = rolesByUserId.get(u.id) || [];
+          let primaryRole: Worker['role'] = 'general_worker';
+          if (userRoles.includes('admin')) primaryRole = 'admin';
+          else if (userRoles.includes('counter_worker')) primaryRole = 'counter_worker';
+          else if (userRoles.includes('kitchen_staff')) primaryRole = 'kitchen_staff';
+          else if (userRoles.length > 0) primaryRole = userRoles[0] as any;
+
+          return {
+            id: u.id,
+            full_name: u.full_name || u.username || 'Staff Member',
+            username: u.username || '',
+            worker_id: u.worker_id || null,
+            role: primaryRole,
+            is_active: true,
+            has_pin: Boolean(u.pin),
+          };
+        });
+
+      if (activeWorkers.length > 0) {
+        try {
+          localStorage.setItem('cached_workers', JSON.stringify(activeWorkers));
+        } catch {}
+        return activeWorkers;
+      }
+    }
   } catch (error) {
-    console.error('Error fetching workers:', error);
-    return [];
+    console.warn('Error fetching workers from live database:', error);
   }
+
+  // Fallback to cached workers for offline or initial load
+  try {
+    const cached = localStorage.getItem('cached_workers');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {}
+
+  return [];
 };
 
 export const startOrResumeWorkerShift = async (

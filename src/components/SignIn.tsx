@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { LogIn, Eye, EyeOff, AlertCircle, Zap, KeyRound, Check } from 'lucide-react';
+import { LogIn, Eye, EyeOff, AlertCircle, Zap, KeyRound, Check, RefreshCw } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
 import ramakosLogoFull from '../assets/ramakos-logo-full.png';
@@ -7,20 +7,32 @@ import ramakosLogoFull from '../assets/ramakos-logo-full.png';
 const DEV_MODE = import.meta.env.DEV;
 
 export const SignIn = () => {
+  const { signIn, signInWithPin, setWorkerPin, isLoading, devSignIn, workers, fetchWorkers } = useAuth();
+  const [loginMode, setLoginMode] = useState<'list' | 'direct'>(() => (workers.length > 0 ? 'list' : 'direct'));
+  const [directEmail, setDirectEmail] = useState('');
   const [selectedWorker, setSelectedWorker] = useState('');
   const [password, setPassword] = useState('');
   const [pin, setPin] = useState('');
   const [authMode, setAuthMode] = useState<'pin' | 'password'>('password');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
   const [pendingPinSetupWorkerId, setPendingPinSetupWorkerId] = useState<string | null>(null);
   const [newPin, setNewPin] = useState('');
   const [pinSuccessMsg, setPinSuccessMsg] = useState('');
   const { toast } = useToast();
 
-  const { signIn, signInWithPin, setWorkerPin, isLoading, devSignIn, workers } = useAuth();
+  const selectedWorkerObj = workers.find((w) => w.id === selectedWorker);
 
-  const selectedWorkerObj = workers.find(w => w.id === selectedWorker);
+  // When workers become available, default to list mode if not already set
+  useEffect(() => {
+    if (workers.length > 0 && !selectedWorker) {
+      setSelectedWorker(workers[0].id);
+      if (loginMode === 'direct' && !directEmail) {
+        setLoginMode('list');
+      }
+    }
+  }, [workers]);
 
   useEffect(() => {
     if (selectedWorkerObj) {
@@ -42,14 +54,47 @@ export const SignIn = () => {
     }
   }, [error]);
 
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      await fetchWorkers();
+      toast.info('Staff Sync', 'Worker directory refreshed from server.');
+    } catch {
+      toast.error('Sync Error', 'Could not reach server to sync staff list.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+
+    // 1. Direct Email/Username Mode (like Admin Portal)
+    if (loginMode === 'direct' || workers.length === 0) {
+      if (!directEmail.trim()) {
+        toast.warning('Enter Email', 'Please enter your staff email or username.');
+        return;
+      }
+      if (!password) {
+        toast.warning('Enter Password', 'Please enter your account password.');
+        return;
+      }
+      const result = await signIn(directEmail.trim(), password);
+      if (result?.error) {
+        setError(result.error);
+        toast.error('Sign-in Failed', result.error);
+      } else {
+        toast.success('Welcome Back!', 'Signed in successfully.');
+      }
+      return;
+    }
+
+    // 2. Worker Selection Mode
     if (!selectedWorker) {
       toast.warning('Select Worker', 'Please select your name from the staff list.');
       return;
     }
-
-    setError('');
 
     if (authMode === 'pin') {
       if (!pin) {
@@ -114,110 +159,78 @@ export const SignIn = () => {
             <p className="text-sm text-muted-foreground">Sign in to start your shift</p>
           </div>
 
-          <form onSubmit={handleSignIn} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-3">
-                Select Your Name
+          <form onSubmit={handleSignIn} className="space-y-5">
+            {/* Header with Mode Toggle & Sync Button */}
+            <div className="flex items-center justify-between pb-1 border-b border-border/60">
+              <label className="block text-sm font-semibold text-foreground">
+                {loginMode === 'direct' || workers.length === 0 ? 'Staff Account Sign-in' : 'Select Your Name'}
               </label>
-              {workers.length === 0 ? (
-                <div className="bg-secondary border border-border rounded-xl p-6 text-center">
-                  <AlertCircle className="w-12 h-12 text-primary mx-auto mb-3" />
-                  <p className="text-secondary-foreground font-medium mb-1">No Workers Found</p>
-                  <p className="text-sm text-muted-foreground">
-                    Please contact your manager to create your worker account.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                  {workers.map(worker => (
-                  <label
-                    key={worker.id}
-                    className={`flex items-center p-4 border-2 rounded-xl cursor-pointer transition-all ${
-                      selectedWorker === worker.id
-                        ? 'border-primary bg-secondary'
-                        : 'border-border hover:border-primary/50 hover:bg-accent'
-                    }`}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleManualSync}
+                  disabled={isSyncing}
+                  className="text-xs text-primary hover:underline flex items-center gap-1 font-medium disabled:opacity-50"
+                  title="Sync staff from server"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span>{isSyncing ? 'Syncing...' : 'Sync'}</span>
+                </button>
+                {workers.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLoginMode(loginMode === 'list' ? 'direct' : 'list');
+                      setError('');
+                    }}
+                    className="text-xs text-muted-foreground hover:text-foreground font-medium"
                   >
-                    <input
-                      type="radio"
-                      name="worker"
-                      value={worker.id}
-                      checked={selectedWorker === worker.id}
-                      onChange={(e) => setSelectedWorker(e.target.value)}
-                      className="sr-only"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-foreground">{worker.full_name}</span>
-                        {worker.has_pin && (
-                          <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                            PIN
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm text-muted-foreground capitalize">{worker.role}</div>
-                    </div>
-                    <div className={`w-4 h-4 rounded-full border-2 ${
-                      selectedWorker === worker.id
-                        ? 'border-primary bg-primary'
-                        : 'border-muted-foreground/30'
-                    }`}>
-                      {selectedWorker === worker.id && (
-                        <div className="w-2 h-2 bg-primary-foreground rounded-full m-0.5"></div>
-                      )}
-                    </div>
-                  </label>
-                  ))}
-                </div>
-              )}
+                    {loginMode === 'list' ? 'Use Email' : 'Use Staff List'}
+                  </button>
+                )}
+              </div>
             </div>
 
-            {selectedWorkerObj && (
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-foreground">
-                    {authMode === 'pin' ? 'Quick PIN' : 'Password'}
+            {/* DIRECT EMAIL / USERNAME LOGIN (Like Admin Portal) */}
+            {loginMode === 'direct' || workers.length === 0 ? (
+              <div className="space-y-4">
+                {workers.length === 0 && (
+                  <div className="bg-primary/5 border border-primary/20 rounded-xl p-3.5 text-xs text-muted-foreground flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-semibold text-foreground block mb-0.5">Staff Directory Sync</span>
+                      Enter your staff email (e.g. <span className="text-primary font-mono font-medium">counter@ramakos.com</span>) & password to sign in. The worker list will automatically sync and cache on this device.
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                    Staff Email or Username
                   </label>
-                  {selectedWorkerObj.has_pin && (
-                    <button
-                      type="button"
-                      onClick={() => setAuthMode(authMode === 'pin' ? 'password' : 'pin')}
-                      className="text-xs text-primary hover:underline font-medium"
-                    >
-                      {authMode === 'pin' ? 'Use Password instead' : 'Use PIN instead'}
-                    </button>
-                  )}
+                  <input
+                    type="text"
+                    value={directEmail}
+                    onChange={(e) => setDirectEmail(e.target.value)}
+                    className="input h-11 w-full"
+                    placeholder="e.g. counter@ramakos.com"
+                    required
+                    autoFocus
+                  />
                 </div>
 
-                {authMode === 'pin' ? (
-                  <div className="space-y-2">
-                    <input
-                      type="password"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      autoComplete="one-time-code"
-                      maxLength={6}
-                      value={pin}
-                      onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                      className="input text-center tracking-[1em] text-xl font-bold font-mono h-12"
-                      placeholder="••••"
-                      autoFocus
-                    />
-                    <p className="text-xs text-muted-foreground text-center">
-                      Enter your 4-6 digit quick PIN
-                    </p>
-                  </div>
-                ) : (
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                    Password
+                  </label>
                   <div className="relative">
                     <input
-                      id="password"
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="input pr-12"
-                      placeholder="Enter your password"
+                      className="input h-11 pr-12 w-full"
+                      placeholder="Enter your account password"
                       required
-                      disabled={!selectedWorker}
                     />
                     <button
                       type="button"
@@ -227,6 +240,113 @@ export const SignIn = () => {
                     >
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* WORKER SELECTION FROM ROSTER */
+              <div className="space-y-4">
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {workers.map((worker) => (
+                    <label
+                      key={worker.id}
+                      className={`flex items-center p-3.5 border-2 rounded-xl cursor-pointer transition-all ${
+                        selectedWorker === worker.id
+                          ? 'border-primary bg-secondary'
+                          : 'border-border hover:border-primary/50 hover:bg-accent'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="worker"
+                        value={worker.id}
+                        checked={selectedWorker === worker.id}
+                        onChange={(e) => setSelectedWorker(e.target.value)}
+                        className="sr-only"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-foreground text-sm">{worker.full_name}</span>
+                          {worker.has_pin && (
+                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                              PIN
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground capitalize">{worker.role.replace('_', ' ')}</div>
+                      </div>
+                      <div
+                        className={`w-4 h-4 rounded-full border-2 ${
+                          selectedWorker === worker.id
+                            ? 'border-primary bg-primary'
+                            : 'border-muted-foreground/30'
+                        }`}
+                      >
+                        {selectedWorker === worker.id && (
+                          <div className="w-2 h-2 bg-primary-foreground rounded-full m-0.5"></div>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+
+                {selectedWorkerObj && (
+                  <div className="pt-2 border-t border-border/40">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-medium text-foreground">
+                        {authMode === 'pin' ? 'Quick PIN' : 'Password'}
+                      </label>
+                      {selectedWorkerObj.has_pin && (
+                        <button
+                          type="button"
+                          onClick={() => setAuthMode(authMode === 'pin' ? 'password' : 'pin')}
+                          className="text-xs text-primary hover:underline font-medium"
+                        >
+                          {authMode === 'pin' ? 'Use Password instead' : 'Use PIN instead'}
+                        </button>
+                      )}
+                    </div>
+
+                    {authMode === 'pin' ? (
+                      <div className="space-y-2">
+                        <input
+                          type="password"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          autoComplete="one-time-code"
+                          maxLength={6}
+                          value={pin}
+                          onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                          className="input text-center tracking-[1em] text-xl font-bold font-mono h-12"
+                          placeholder="••••"
+                          autoFocus
+                        />
+                        <p className="text-xs text-muted-foreground text-center">
+                          Enter your 4-6 digit quick PIN
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <input
+                          id="password"
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="input pr-12 h-11"
+                          placeholder="Enter your password"
+                          required
+                          disabled={!selectedWorker}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          tabIndex={-1}
+                        >
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -243,23 +363,28 @@ export const SignIn = () => {
               <button
                 type="button"
                 onClick={devSignIn}
-                className="w-full bg-foreground text-background py-4 px-6 rounded-xl font-medium text-lg
+                className="w-full bg-foreground text-background py-3.5 px-6 rounded-xl font-medium text-sm
                          hover:bg-foreground/90 transition-colors flex items-center justify-center space-x-2"
               >
-                <Zap className="w-5 h-5" />
+                <Zap className="w-4 h-4" />
                 <span>Dev Mode - Skip Login</span>
               </button>
             )}
 
             <button
               type="submit"
-              disabled={!selectedWorker || (authMode === 'pin' ? !pin : !password) || isLoading}
-              className="w-full bg-primary text-primary-foreground py-4 px-6 rounded-xl font-medium text-lg
+              disabled={
+                isLoading ||
+                (loginMode === 'direct' || workers.length === 0
+                  ? !directEmail.trim() || !password
+                  : !selectedWorker || (authMode === 'pin' ? !pin : !password))
+              }
+              className="w-full bg-primary text-primary-foreground py-3.5 px-6 rounded-xl font-semibold text-base
                        hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed
                        transition-colors flex items-center justify-center space-x-2 shadow-brand"
             >
               {isLoading ? (
-                <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary-foreground border-t-transparent"></div>
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary-foreground border-t-transparent"></div>
               ) : (
                 <>
                   <LogIn className="w-5 h-5" />
