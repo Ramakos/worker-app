@@ -14,9 +14,12 @@ import {
   CreditCard,
   ChefHat,
   ShieldAlert,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from './Toast';
+import { isNetworkOrTimeoutError, isOffline } from '../lib/authErrors';
 import ramakosLogoFull from '../assets/ramakos-logo-full.png';
 
 const DEV_MODE = import.meta.env.DEV;
@@ -52,10 +55,26 @@ export const SignIn = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true));
   const [pendingPinSetupWorkerId, setPendingPinSetupWorkerId] = useState<string | null>(null);
   const [newPin, setNewPin] = useState('');
   const [pinSuccessMsg, setPinSuccessMsg] = useState('');
   const { toast } = useToast();
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      fetchWorkers();
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const selectedWorkerObj = workers.find((w) => w.id === selectedWorker);
 
@@ -84,12 +103,16 @@ export const SignIn = () => {
 
   useEffect(() => {
     if (error) {
-      const timer = setTimeout(() => setError(''), 5000);
+      const timer = setTimeout(() => setError(''), 6000);
       return () => clearTimeout(timer);
     }
   }, [error]);
 
   const handleManualSync = async () => {
+    if (isOffline()) {
+      toast.warning('Offline', 'Cannot sync staff roster while offline. Check internet connection.');
+      return;
+    }
     setIsSyncing(true);
     try {
       await fetchWorkers();
@@ -207,6 +230,17 @@ export const SignIn = () => {
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">Worker Portal</h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Start your shift & live service dispatch</p>
           </div>
+
+          {/* Offline / Poor Internet Alert Banner */}
+          {!isOnline && (
+            <div className="mb-4 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center gap-2.5 text-xs">
+              <WifiOff className="w-4 h-4 shrink-0 animate-pulse" />
+              <div className="flex-1 min-w-0">
+                <span className="font-semibold block">Device Offline</span>
+                <span>Check Wi-Fi or mobile data. Server requests are paused.</span>
+              </div>
+            </div>
+          )}
 
           {/* Mode Switcher Pills */}
           <div className="flex p-1 bg-muted rounded-2xl mb-5 text-xs font-semibold">
@@ -510,9 +544,19 @@ export const SignIn = () => {
             )}
 
             {error && (
-              <div className="bg-destructive/10 border border-destructive/30 rounded-2xl p-3.5 flex items-start space-x-2.5">
-                <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                <div className="text-destructive text-xs font-medium">{error}</div>
+              <div
+                className={`rounded-2xl p-3.5 flex items-start space-x-2.5 border ${
+                  isNetworkOrTimeoutError(error)
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                    : "bg-destructive/10 border-destructive/30 text-destructive"
+                }`}
+              >
+                {isNetworkOrTimeoutError(error) ? (
+                  <WifiOff className="w-4 h-4 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                )}
+                <div className="text-xs font-medium leading-relaxed flex-1">{error}</div>
               </div>
             )}
 

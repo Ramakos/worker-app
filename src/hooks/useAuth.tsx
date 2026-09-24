@@ -8,6 +8,7 @@ import {
   startOrResumeWorkerShift,
   validateStoredSession,
 } from '../lib/authService';
+import { parseAuthError, isNetworkOrTimeoutError, isOffline } from '../lib/authErrors';
 
 interface AuthContextType {
   currentWorker: Worker | null;
@@ -80,6 +81,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (workerIdOrEmail: string, password: string) => {
+    if (isOffline()) {
+      return { error: 'You are currently offline. Please check your internet connection and try again.' };
+    }
+
     setIsLoading(true);
     try {
       const cleanInput = workerIdOrEmail.trim();
@@ -127,7 +132,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (lastAuthError || !authData?.user) {
         console.error('Auth error on candidate emails:', uniqueEmails, lastAuthError);
-        return { error: 'Invalid password. Please check your credentials or use quick PIN.' };
+        return {
+          error: parseAuthError(lastAuthError, {
+            inputIdentifier: cleanInput,
+            method: 'password',
+          }),
+        };
       }
 
       // If not previously in list, fetch profile as authenticated user
@@ -176,14 +186,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     } catch (error: any) {
       console.error('Error signing in:', error);
-      return { error: error.message || 'An unexpected error occurred. Please try again.' };
+      return {
+        error: parseAuthError(error, {
+          inputIdentifier: workerIdOrEmail,
+          method: 'password',
+        }),
+      };
     } finally {
       setIsLoading(false);
     }
   };
 
   const signInWithPin = async (workerIdOrPin: string, pin?: string) => {
+    if (isOffline()) {
+      return { error: 'You are currently offline. Please check your internet connection to sign in.' };
+    }
+
     setIsLoading(true);
+    let capturedNetworkError: any = null;
     try {
       const pinToVerify = pin || workerIdOrPin;
       let targetWorker = pin ? workers.find((w) => w.id === workerIdOrPin) : undefined;
@@ -194,7 +214,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           _pin: pinToVerify,
         });
 
-        if (!rpcError && rpcData && rpcData.length > 0) {
+        if (rpcError) {
+          if (isNetworkOrTimeoutError(rpcError)) {
+            capturedNetworkError = rpcError;
+          }
+        } else if (rpcData && rpcData.length > 0) {
           const matched = targetWorker ? rpcData.find((p: any) => p.id === targetWorker!.id) : rpcData[0];
           if (matched) {
             const resolvedWorker: Worker = targetWorker || {
@@ -215,29 +239,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (rpcErr) {
         console.warn('RPC lookup_profile_by_pin error:', rpcErr);
+        if (isNetworkOrTimeoutError(rpcErr)) {
+          capturedNetworkError = rpcErr;
+        }
       }
 
       // 2. Direct table fallback if user_profiles is readable
       if (targetWorker) {
-        const { data: profileData, error: profileError } = await supabase
-          .from('user_profiles')
-          .select('id, pin, is_active')
-          .eq('id', targetWorker.id)
-          .eq('pin', pinToVerify)
-          .maybeSingle();
+        try {
+          const { data: profileData, error: profileError } = await supabase
+            .from('user_profiles')
+            .select('id, pin, is_active')
+            .eq('id', targetWorker.id)
+            .eq('pin', pinToVerify)
+            .maybeSingle();
 
-        if (!profileError && profileData && profileData.is_active !== false) {
-          const { worker: activeWorker } = await startOrResumeWorkerShift(targetWorker, 'pin');
-          setCurrentWorker(activeWorker);
-          fetchWorkers();
-          return { success: true };
+          if (profileError) {
+            if (isNetworkOrTimeoutError(profileError)) {
+              capturedNetworkError = profileError;
+            }
+          } else if (profileData && profileData.is_active !== false) {
+            const { worker: activeWorker } = await startOrResumeWorkerShift(targetWorker, 'pin');
+            setCurrentWorker(activeWorker);
+            fetchWorkers();
+            return { success: true };
+          }
+        } catch (tblErr) {
+          if (isNetworkOrTimeoutError(tblErr)) {
+            capturedNetworkError = tblErr;
+          }
         }
+      }
+
+      if (capturedNetworkError) {
+        return { error: parseAuthError(capturedNetworkError, { method: 'pin' }) };
       }
 
       return { error: 'Invalid PIN. Please try again or sign in with your password.' };
     } catch (error: any) {
       console.error('Error signing in with PIN:', error);
-      return { error: error.message || 'An unexpected error occurred. Please try again.' };
+      return { error: parseAuthError(error, { method: 'pin' }) };
     } finally {
       setIsLoading(false);
     }
