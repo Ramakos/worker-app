@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   ChevronDown,
   Clock,
@@ -14,6 +14,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { TableOrder } from './types';
+import { useMenuSuggestions } from '../../hooks/useMenuSuggestions';
 
 interface TableCardProps {
   table: TableOrder;
@@ -72,6 +73,38 @@ export const TableCard: React.FC<TableCardProps> = ({
   onViewSummary,
   onDelete,
 }) => {
+  const { getSuggestions } = useMenuSuggestions();
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [focusedSuggestionIndex, setFocusedSuggestionIndex] = useState(-1);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const suggestions = useMemo(() => {
+    if (!newItemName.trim() || !showSuggestions) return [];
+    return getSuggestions(newItemName);
+  }, [newItemName, showSuggestions, getSuggestions]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node) &&
+        itemInputRef.current &&
+        !itemInputRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [itemInputRef]);
+
+  const handleSelectSuggestion = (item: { name: string; price: number }) => {
+    setNewItemName(item.name);
+    setNewItemPrice(item.price > 0 ? item.price.toFixed(2) : '');
+    setShowSuggestions(false);
+    setFocusedSuggestionIndex(-1);
+  };
+
   return (
     <div
       className={`card overflow-hidden transition-all duration-300 ${isJustAdded ? 'ring-2 ring-primary ring-offset-2' : ''}`}
@@ -136,25 +169,116 @@ export const TableCard: React.FC<TableCardProps> = ({
                 <Receipt className="w-3.5 h-3.5" />
                 <span className="font-medium">Add Item</span>
               </div>
-              <div className="flex gap-2">
-                <input
-                  ref={itemInputRef}
-                  type="text"
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && newItemPrice && onAddItem()}
-                  placeholder="Item name"
-                  className="input flex-1 text-sm"
-                />
+              <div className="flex gap-2 relative">
+                <div className="flex-1 relative">
+                  <input
+                    ref={itemInputRef}
+                    type="text"
+                    value={newItemName}
+                    onChange={(e) => {
+                      setNewItemName(e.target.value);
+                      setShowSuggestions(true);
+                      setFocusedSuggestionIndex(-1);
+                    }}
+                    onFocus={() => setShowSuggestions(true)}
+                    onKeyDown={(e) => {
+                      if (showSuggestions && suggestions.length > 0) {
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          setFocusedSuggestionIndex((prev) => (prev + 1) % suggestions.length);
+                          return;
+                        }
+                        if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          setFocusedSuggestionIndex(
+                            (prev) => (prev - 1 + suggestions.length) % suggestions.length
+                          );
+                          return;
+                        }
+                        if (e.key === 'Enter' && focusedSuggestionIndex >= 0) {
+                          e.preventDefault();
+                          handleSelectSuggestion(suggestions[focusedSuggestionIndex]);
+                          return;
+                        }
+                        if (e.key === 'Escape') {
+                          setShowSuggestions(false);
+                          return;
+                        }
+                      }
+                      if (e.key === 'Enter' && newItemPrice) {
+                        setShowSuggestions(false);
+                        onAddItem();
+                      }
+                    }}
+                    placeholder="Item name (type for suggestions...)"
+                    className="input w-full text-sm"
+                  />
+
+                  {/* Typing Suggestions Popover */}
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div
+                      ref={dropdownRef}
+                      className="absolute z-40 top-full left-0 right-0 mt-1 bg-card border border-border/80 rounded-xl shadow-2xl overflow-hidden max-h-56 overflow-y-auto animate-in fade-in"
+                    >
+                      <div className="px-2.5 py-1.5 bg-muted/60 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/50 flex justify-between items-center">
+                        <span>Menu Suggestions</span>
+                        <span>{suggestions.length} match{suggestions.length !== 1 ? 'es' : ''}</span>
+                      </div>
+                      <div className="p-1 space-y-0.5">
+                        {suggestions.map((s, idx) => {
+                          const isHighlighted = idx === focusedSuggestionIndex;
+                          return (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => handleSelectSuggestion(s)}
+                              className={`w-full text-left px-2.5 py-2 rounded-lg flex items-center justify-between text-xs transition-colors ${
+                                isHighlighted
+                                  ? 'bg-primary text-primary-foreground font-semibold'
+                                  : 'hover:bg-muted text-foreground'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 truncate pr-2">
+                                <span className="truncate">{s.name}</span>
+                                <span
+                                  className={`text-[10px] px-1.5 py-0.5 rounded-md ${
+                                    isHighlighted
+                                      ? 'bg-primary-foreground/20 text-primary-foreground'
+                                      : 'bg-muted-foreground/10 text-muted-foreground'
+                                  }`}
+                                >
+                                  {s.category}
+                                </span>
+                              </div>
+                              <span
+                                className={`font-mono font-bold shrink-0 ${
+                                  isHighlighted ? 'text-primary-foreground' : 'text-primary'
+                                }`}
+                              >
+                                GHS {s.price.toFixed(2)}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <input
                   type="number"
                   value={newItemPrice}
                   onChange={(e) => setNewItemPrice(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && newItemName && onAddItem()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newItemName) {
+                      setShowSuggestions(false);
+                      onAddItem();
+                    }
+                  }}
                   placeholder="0.00"
                   step="0.01"
                   min="0"
-                  className="input w-24 text-sm text-right"
+                  className="input w-24 text-sm text-right font-mono"
                 />
               </div>
               <div className="flex items-center justify-between pt-1">

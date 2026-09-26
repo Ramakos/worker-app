@@ -128,31 +128,8 @@ export const Dashboard = () => {
     { id: 'menu' as Tab, label: 'Menu Catalog', icon: UtensilsCrossed },
   ];
 
-  const handleAddFromMenu = (item: { name: string; price: number }) => {
-    try {
-      const savedTables = localStorage.getItem('activeTables');
-      let tables: any[] = savedTables ? JSON.parse(savedTables) : [];
-      if (tables.length === 0) {
-        tables = [{
-          id: Date.now().toString(),
-          tableName: 'Table 1',
-          items: [],
-          notes: '',
-          timestamp: Date.now(),
-        }];
-      }
-      const newItem: TableLineItem = {
-        id: Date.now().toString() + Math.random(),
-        name: item.name,
-        price: item.price,
-        quantity: 1,
-      };
-      tables[0].items = [...tables[0].items, newItem];
-      localStorage.setItem('activeTables', JSON.stringify(tables));
-      setTablesKey(k => k + 1);
-    } catch {
-      // ignore
-    }
+  const handleAddFromMenu = (_targetTableId?: string) => {
+    setTablesKey((k) => k + 1);
     setActiveTab('tables');
   };
 

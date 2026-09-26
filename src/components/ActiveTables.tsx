@@ -1,4 +1,4 @@
-import { Plus, Hash, Trash2 } from 'lucide-react';
+import { Hash, Trash2 } from 'lucide-react';
 import { useActiveTables } from './activeTables/useActiveTables';
 import { TableCard } from './activeTables/TableCard';
 import { TableSummaryModal } from './activeTables/TableSummaryModal';
@@ -46,21 +46,18 @@ export const ActiveTables = () => {
       {/* Add New Table - Quick Add */}
       <div className="card-elevated p-3 scale-in">
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-brand flex items-center justify-center shadow-brand">
-            <Plus className="w-5 h-5 text-primary-foreground" />
-          </div>
           <input
             type="text"
             value={newTable}
             onChange={(e) => setNewTable(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddTable()}
-            placeholder="Add table (e.g. Table 4)"
-            className="input flex-1 bg-muted/50 border-border h-11 text-sm"
+            placeholder="Add table (e.g. Table 4 or VIP 1)"
+            className="input flex-1 bg-muted/50 border-border h-11 text-sm px-3.5"
           />
           <button
             onClick={handleAddTable}
             disabled={!newTable.trim()}
-            className="btn btn-primary px-4 py-2.5 h-11 text-sm disabled:opacity-40 disabled:cursor-not-allowed shrink-0 haptic"
+            className="btn btn-primary px-4 py-2.5 h-11 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed shrink-0 haptic shadow-sm"
           >
             Add Table
           </button>
