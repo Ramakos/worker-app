@@ -8,8 +8,6 @@ import {
   X,
   CreditCard as Edit3,
   Check,
-  Undo,
-  RotateCcw,
   Eye,
   Trash2,
 } from 'lucide-react';
@@ -39,8 +37,6 @@ interface TableCardProps {
   editNotes: string;
   setEditNotes: (val: string) => void;
   onSaveNotes: (notes: string) => void;
-  onUndo: () => void;
-  onClear: () => void;
   onViewSummary: () => void;
   onDelete: () => void;
 }
@@ -68,8 +64,6 @@ export const TableCard: React.FC<TableCardProps> = ({
   editNotes,
   setEditNotes,
   onSaveNotes,
-  onUndo,
-  onClear,
   onViewSummary,
   onDelete,
 }) => {
@@ -403,35 +397,24 @@ export const TableCard: React.FC<TableCardProps> = ({
             )}
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-2 pt-1">
-            <button
-              onClick={onUndo}
-              disabled={table.items.length === 0}
-              className="flex-1 btn btn-outline py-2.5 text-sm disabled:opacity-40 haptic"
-            >
-              <Undo className="w-4 h-4" />
-              <span>Undo</span>
-            </button>
-            <button
-              onClick={onClear}
-              disabled={table.items.length === 0}
-              className="flex-1 btn btn-outline py-2.5 text-sm disabled:opacity-40 haptic"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>Clear</span>
-            </button>
-          </div>
-
-          {/* View Summary */}
+          {/* View Summary & Checkout */}
           {table.items.length > 0 && (
-            <button
-              onClick={onViewSummary}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-secondary hover:bg-accent text-secondary-foreground rounded-xl text-sm font-medium transition-colors haptic"
-            >
-              <Eye className="w-4 h-4" />
-              <span>View Summary</span>
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={onViewSummary}
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-3 bg-secondary hover:bg-accent text-secondary-foreground rounded-xl text-xs font-semibold transition-colors haptic"
+              >
+                <Eye className="w-4 h-4" />
+                <span>Summary</span>
+              </button>
+              <button
+                onClick={onViewSummary}
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-3 bg-primary hover:bg-brand-dark text-primary-foreground rounded-xl text-xs font-semibold shadow-sm transition-colors haptic"
+              >
+                <Receipt className="w-4 h-4" />
+                <span>Checkout / Settle</span>
+              </button>
+            </div>
           )}
 
           {/* Delete Table */}

@@ -28,15 +28,21 @@ export const useOrders = (workerId?: string) => {
   const fetchOrders = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('orders')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const formattedOrders = data?.map(order => ({
+      const formattedOrders: Order[] = data?.map((order: any) => ({
         ...order,
+        order_number: order.order_number || order.id,
+        customer_name: order.customer_name || null,
+        customer_phone: order.customer_phone || null,
+        delivery_address: order.delivery_address || null,
+        rejection_reason: order.rejection_reason || null,
+        notes: order.notes || null,
         items: Array.isArray(order.items) ? order.items.map((item: any, index: number) => ({
           id: `${order.id}-${index}`,
           name: item.name || item.menu_item_name || 'Unknown Item',
@@ -56,14 +62,19 @@ export const useOrders = (workerId?: string) => {
     }
   };
 
-  const mapOrderStatus = (status: string): 'pending' | 'preparing' | 'ready' | 'served' => {
+  const mapOrderStatus = (status: string): Order['status'] => {
     if (!status) return 'pending';
     switch (status.toLowerCase()) {
       case 'pending': return 'pending';
+      case 'confirmed': return 'confirmed';
       case 'in_kitchen':
-      case 'preparing': return 'preparing';
+      case 'preparing': return 'in_kitchen';
       case 'ready': return 'ready';
       case 'served': return 'served';
+      case 'delivered': return 'delivered';
+      case 'cancelled':
+      case 'canceled': return 'cancelled';
+      case 'held': return 'held';
       default: return 'pending';
     }
   };
@@ -237,6 +248,49 @@ export const useOrders = (workerId?: string) => {
     }
   };
 
+  const rejectOrder = async (orderId: number, reason: string) => {
+    try {
+      const updateData: any = {
+        status: 'cancelled',
+        rejection_reason: reason,
+      };
+
+      const { error } = await (supabase as any)
+        .from('orders')
+        .update(updateData)
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      if (workerId) {
+        await logWorkerOrder(orderId, 'cancelled', workerId, null, null);
+
+        recordWorkerActivity(workerId, {
+          type: 'order_status',
+          title: `Rejected Order #${orderId}`,
+          details: reason,
+          status: 'cancelled',
+          order_id: orderId,
+        });
+      }
+
+      setOrders(prev => {
+        const updated = prev.map(o =>
+          o.id === orderId
+            ? { ...o, status: 'cancelled' as const, rejection_reason: reason }
+            : o
+        );
+        saveOrdersToCache(updated);
+        return updated;
+      });
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Error rejecting order:', error);
+      return { success: false, error: error.message || 'Failed to reject order' };
+    }
+  };
+
   const personalOrders = workerId 
     ? orders.filter(order => order.claimed_by === workerId)
     : [];
@@ -266,6 +320,7 @@ export const useOrders = (workerId?: string) => {
     isLoading,
     updateOrderStatus,
     assignOrder: claimOrder,
+    rejectOrder,
     refreshOrders: fetchOrders,
   };
 };

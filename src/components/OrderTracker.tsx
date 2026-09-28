@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react';
-import { ClipboardList, Clock, ChefHat, CheckCircle, Truck, Users, RefreshCw, UserCheck } from 'lucide-react';
+import { ClipboardList, Clock, ChefHat, CheckCircle, Truck, Users, RefreshCw, UserCheck, Eye, Ban } from 'lucide-react';
 import { useOrders } from '../hooks/useOrders';
 import { useToast } from './Toast';
 import { Order } from '../types';
 import { DateRangeFilter } from './common/DateRangeFilter';
 import { DateFilterState, matchesDateFilter } from '../lib/dateFilter';
+import { RejectOrderModal } from './orders/RejectOrderModal';
+import { OrderDetailsModal } from './orders/OrderDetailsModal';
 
 interface OrderTrackerProps {
   workerId?: string;
@@ -14,7 +16,11 @@ interface OrderTrackerProps {
 export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
   const [activeView, setActiveView] = useState<'all' | 'personal'>('all');
   const [dateFilter, setDateFilter] = useState<DateFilterState>({ preset: 'today' });
-  const { allOrders, personalOrders, isLoading, updateOrderStatus, assignOrder, refreshOrders } = useOrders(workerId);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [rejectTargetOrder, setRejectTargetOrder] = useState<Order | null>(null);
+  const [isRejecting, setIsRejecting] = useState(false);
+
+  const { allOrders, personalOrders, isLoading, updateOrderStatus, assignOrder, rejectOrder, refreshOrders } = useOrders(workerId);
   const { toast } = useToast();
 
   const handleRefresh = async () => {
@@ -27,6 +33,9 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
     const res = await assignOrder(orderId, workerId);
     if (res?.success) {
       toast.success('Order Claimed', `Order #${orderNumber || orderId} is now assigned to you.`);
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder(prev => prev ? { ...prev, claimed_by: workerId, claimed_at: new Date().toISOString() } : null);
+      }
     } else {
       toast.error('Claim Failed', res?.error || 'Could not claim this order.');
     }
@@ -51,8 +60,29 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
           ? `Order #${orderNumber || orderId} served! GH₵ ${Number(totalAmount).toFixed(2)} credited to your sales.`
           : `Order #${orderNumber || orderId} marked as ${nextStatus}.`
       );
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder(prev => prev ? { ...prev, status: nextStatus, claimed_by: workerId || prev.claimed_by } : null);
+      }
     } else {
       toast.error('Update Failed', res?.error || `Could not update to ${label}.`);
+    }
+  };
+
+  const handleConfirmReject = async (orderId: number, reason: string) => {
+    setIsRejecting(true);
+    try {
+      const res = await rejectOrder(orderId, reason);
+      if (res?.success) {
+        toast.warning('Order Declined', `Order #${orderId} was declined and customer notified.`);
+        if (selectedOrder?.id === orderId) {
+          setSelectedOrder(prev => prev ? { ...prev, status: 'cancelled', rejection_reason: reason } : null);
+        }
+      } else {
+        toast.error('Decline Failed', res?.error || 'Could not decline this order.');
+      }
+    } finally {
+      setIsRejecting(false);
+      setRejectTargetOrder(null);
     }
   };
 
@@ -73,6 +103,7 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
       case 'ready': return <CheckCircle className="w-3.5 h-3.5" />;
       case 'served':
       case 'delivered': return <Truck className="w-3.5 h-3.5" />;
+      case 'cancelled': return <Ban className="w-3.5 h-3.5 text-destructive" />;
       default: return <Clock className="w-3.5 h-3.5" />;
     }
   };
@@ -84,6 +115,7 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
       case 'ready': return 'text-emerald-700 bg-emerald-50 border-emerald-200/60';
       case 'served':
       case 'delivered': return 'text-muted-foreground bg-muted border-border';
+      case 'cancelled': return 'text-destructive bg-destructive/10 border-destructive/30';
       default: return 'text-muted-foreground bg-muted border-border';
     }
   };
@@ -220,14 +252,19 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
             .map(order => {
               const totalAmount = order.total_paid || calculateTotal(order.items);
               const isClaimedByMe = order.claimed_by === workerId;
+              const orderNum = order.order_number || order.id;
 
               return (
-                <div key={order.id} className="bg-card rounded-2xl shadow-sm p-4 border border-border hover:border-primary/30 transition-all">
+                <div
+                  key={order.id}
+                  onClick={() => setSelectedOrder(order)}
+                  className="bg-card rounded-2xl shadow-sm p-4 border border-border hover:border-primary/40 hover:shadow-md transition-all cursor-pointer group"
+                >
                   <div className="flex items-start justify-between gap-2 mb-3">
                     <div>
                       <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                        <span className="font-bold text-sm text-foreground">
-                          #{order.id}
+                        <span className="font-bold text-sm text-foreground group-hover:text-primary transition-colors">
+                          #{orderNum}
                         </span>
                         {order.customer_name && (
                           <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-md text-[11px] font-medium">
@@ -269,8 +306,21 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
                     ))}
                   </div>
 
+                  {/* Rejection / Cancellation Notice if applicable */}
+                  {order.status === 'cancelled' && (
+                    <div className="mb-3 text-[11px] text-destructive bg-destructive/10 px-2.5 py-1.5 rounded-lg border border-destructive/20 flex items-center gap-1.5">
+                      <Ban className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">
+                        <strong>Declined:</strong> {order.rejection_reason || 'Staff declined'}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Footer & Quick Actions */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-border/60">
+                  <div
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-border/60"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <div className="flex items-baseline justify-between sm:justify-start gap-2">
                       <span className="text-xs text-muted-foreground">Total:</span>
                       <span className="text-base font-bold text-primary">
@@ -278,23 +328,40 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      {!order.claimed_by && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setSelectedOrder(order)}
+                        className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-colors haptic"
+                        title="View Details"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+
+                      {!order.claimed_by && order.status !== 'cancelled' && (
                         <button
-                          onClick={() => handleClaim(order.id, (order as any).order_number || order.id)}
+                          onClick={() => handleClaim(order.id, orderNum)}
                           className="flex-1 sm:flex-none px-3 py-1.5 bg-secondary hover:bg-secondary/80 text-secondary-foreground rounded-xl text-xs font-semibold transition-all haptic"
                         >
                           Claim
                         </button>
                       )}
 
-                      {order.status !== 'served' && order.status !== 'delivered' && (
-                        <button
-                          onClick={() => handleAdvanceStatus(order.id, order.status, (order as any).order_number || order.id)}
-                          className="flex-1 sm:flex-none px-3.5 py-1.5 bg-primary hover:bg-brand-dark text-primary-foreground rounded-xl text-xs font-semibold shadow-sm transition-all haptic"
-                        >
-                          {getNextStatusLabel(order.status)}
-                        </button>
+                      {order.status !== 'served' && order.status !== 'delivered' && order.status !== 'cancelled' && (
+                        <>
+                          <button
+                            onClick={() => setRejectTargetOrder(order)}
+                            className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl transition-colors haptic"
+                            title="Decline / Reject Order"
+                          >
+                            <Ban className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleAdvanceStatus(order.id, order.status, orderNum)}
+                            className="flex-1 sm:flex-none px-3.5 py-1.5 bg-primary hover:bg-brand-dark text-primary-foreground rounded-xl text-xs font-semibold shadow-sm transition-all haptic"
+                          >
+                            {getNextStatusLabel(order.status)}
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -314,6 +381,28 @@ export const OrderTracker = ({ workerId }: OrderTrackerProps) => {
             })
         )}
       </div>
+
+      {/* Order Details Modal */}
+      <OrderDetailsModal
+        order={selectedOrder}
+        isOpen={!!selectedOrder}
+        onClose={() => setSelectedOrder(null)}
+        workerId={workerId}
+        onClaim={handleClaim}
+        onAdvanceStatus={handleAdvanceStatus}
+        onRequestReject={(order) => {
+          setRejectTargetOrder(order);
+        }}
+      />
+
+      {/* Reject Order Modal */}
+      <RejectOrderModal
+        order={rejectTargetOrder}
+        isOpen={!!rejectTargetOrder}
+        onClose={() => setRejectTargetOrder(null)}
+        onConfirmReject={handleConfirmReject}
+        isSubmitting={isRejecting}
+      />
     </div>
   );
 };

@@ -13,4 +13,4 @@ export interface TableOrder {
   timestamp: number;
 }
 
-export type ConfirmAction = 'undo' | 'clear' | 'clearAll' | 'deleteTable' | null;
+export type ConfirmAction = 'deleteTable' | null;

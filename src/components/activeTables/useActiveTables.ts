@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { supabase } from '../../lib/supabase';
 import { useToast } from '../Toast';
 import { useAuth } from '../../hooks/useAuth';
 import { recordWorkerActivity } from '../../lib/workerActivity';
@@ -22,6 +23,7 @@ export const useActiveTables = () => {
   const [summaryTable, setSummaryTable] = useState<TableOrder | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [confirmTableId, setConfirmTableId] = useState<string | null>(null);
+  const [isSettling, setIsSettling] = useState(false);
 
   const itemInputRef = useRef<HTMLInputElement>(null);
 
@@ -145,29 +147,6 @@ export const useActiveTables = () => {
     }
   };
 
-  const handleUndoLastItem = (tableId: string) => {
-    const targetTable = tables.find(t => t.id === tableId);
-    const lastItem = targetTable?.items[targetTable.items.length - 1];
-    setTables(prev => prev.map(t => {
-      if (t.id !== tableId) return t;
-      const items = [...t.items];
-      items.pop();
-      return { ...t, items };
-    }));
-    if (lastItem) {
-      toast.info('Item Undone', `Removed last added: ${lastItem.name}`);
-    }
-  };
-
-  const handleClearItems = (tableId: string) => {
-    const targetTable = tables.find(t => t.id === tableId);
-    setTables(prev => prev.map(t => {
-      if (t.id !== tableId) return t;
-      return { ...t, items: [] };
-    }));
-    toast.warning('Items Cleared', `Cleared all items for ${targetTable?.tableName || 'table'}`);
-  };
-
   const handleUpdateQuantity = (tableId: string, itemId: string, delta: number) => {
     setTables(prev => prev.map(t => {
       if (t.id !== tableId) return t;
@@ -197,13 +176,147 @@ export const useActiveTables = () => {
     return `${hrs}h`;
   };
 
+  const handleSettleTable = async (table: TableOrder): Promise<boolean> => {
+    if (!table.items.length) {
+      toast.error('Cannot Settle', 'Table has no items to settle.');
+      return false;
+    }
+
+    const isDevMode =
+      localStorage.getItem('devMode') === 'true' ||
+      currentWorker?.id === '00000000-0000-0000-0000-000000000001';
+
+    // 1. Check if user is authenticated with Supabase
+    const { data: sessionData } = await supabase.auth.getSession();
+    const sessionUser = sessionData?.session?.user;
+
+    // If completely unauthenticated and not in dev mode, prompt sign in
+    if (!sessionUser && !isDevMode) {
+      toast.error(
+        'Sign In Required',
+        'You must be signed in with your staff account to settle tables and sync cash sales to the counter.'
+      );
+      return false;
+    }
+
+    setIsSettling(true);
+    try {
+      const total = getTableTotal(table);
+
+      // 2. Dev mode simulation: close table locally without failing remote RLS
+      if (isDevMode && !sessionUser) {
+        setTables(prev => prev.filter(t => t.id !== table.id));
+        if (expandedId === table.id) setExpandedId(null);
+        setSummaryTable(null);
+
+        if (currentWorker) {
+          recordWorkerActivity(currentWorker.id, {
+            type: 'table_order',
+            title: `Settled ${table.tableName} (Dev Mode)`,
+            details: `${table.items.length} item(s) • GH₵ ${total.toFixed(2)} (Simulated)`,
+            amount: total,
+            status: 'served',
+          });
+        }
+
+        toast.success(
+          'Table Settled (Dev Mode) 💰',
+          `${table.tableName} closed locally. In production, signing in with your staff account credits GH₵ ${total.toFixed(2)} and syncs with the counter.`
+        );
+        return true;
+      }
+
+      // 3. Authenticated live settlement
+      const effectiveWorkerId = sessionUser?.id || currentWorker?.id || null;
+      const orderItems = table.items.map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+      }));
+
+      const insertData: any = {
+        status: 'served',
+        order_type: 'dinein',
+        mode: 'dine_in',
+        customer_name: table.tableName,
+        items: orderItems,
+        total_paid: total,
+        claimed_by: effectiveWorkerId,
+        created_by: effectiveWorkerId,
+        claimed_at: new Date().toISOString(),
+        ready_at: new Date().toISOString(),
+        payment_method: 'cash',
+        source: 'worker_app',
+      };
+
+      const { data, error } = await (supabase as any)
+        .from('orders')
+        .insert(insertData)
+        .select('id')
+        .single();
+
+      if (error) throw error;
+
+      if (effectiveWorkerId && data?.id) {
+        // Credit worker sales
+        const { error: woError } = await supabase.from('worker_orders').insert({
+          order_id: data.id,
+          worker_id: effectiveWorkerId,
+          action: 'served',
+          amount: total,
+          mode: 'dine_in',
+        });
+        if (woError) {
+          console.error('Error logging worker_orders for table settlement:', woError);
+        }
+
+        recordWorkerActivity(effectiveWorkerId, {
+          type: 'table_order',
+          title: `Settled ${table.tableName}`,
+          details: `${table.items.length} item(s) • GH₵ ${total.toFixed(2)} (Cash sent to counter)`,
+          amount: total,
+          order_id: data.id,
+          status: 'served',
+        });
+      }
+
+      // Remove settled table from active list
+      setTables(prev => prev.filter(t => t.id !== table.id));
+      if (expandedId === table.id) setExpandedId(null);
+      setSummaryTable(null);
+
+      toast.success(
+        'Table Settled! 💰',
+        `${table.tableName} closed. GH₵ ${total.toFixed(2)} credited to your sales.`
+      );
+      return true;
+    } catch (err: any) {
+      console.error('Failed to settle table:', err);
+      const isAuthError =
+        err?.code === '42501' ||
+        err?.status === 401 ||
+        err?.message?.includes('row-level security') ||
+        err?.message?.includes('Unauthorized') ||
+        err?.message?.includes('JWT');
+
+      if (isAuthError) {
+        toast.error(
+          'Sign In Required',
+          'Your staff session has expired or you are not signed in. Please sign in with your staff account to settle tables.'
+        );
+      } else {
+        toast.error('Settlement Failed', err.message || 'Could not settle table. Please try again.');
+      }
+      return false;
+    } finally {
+      setIsSettling(false);
+    }
+  };
+
   const grandTotal = tables.reduce((sum, t) => sum + getTableTotal(t), 0);
 
   const executeConfirm = () => {
     if (!confirmAction) return;
-    if (confirmAction === 'undo' && confirmTableId) handleUndoLastItem(confirmTableId);
-    if (confirmAction === 'clear' && confirmTableId) handleClearItems(confirmTableId);
-    if (confirmAction === 'clearAll') handleClearAll();
     if (confirmAction === 'deleteTable' && confirmTableId) handleDeleteTable(confirmTableId);
     setConfirmAction(null);
     setConfirmTableId(null);
@@ -232,17 +345,16 @@ export const useActiveTables = () => {
     setConfirmAction,
     confirmTableId,
     setConfirmTableId,
+    isSettling,
     itemInputRef,
     getTableTotal,
     handleAddTable,
     handleDeleteTable,
-    handleClearAll,
     handleAddItem,
     handleRemoveItem,
-    handleUndoLastItem,
-    handleClearItems,
     handleUpdateQuantity,
     handleUpdateNotes,
+    handleSettleTable,
     getTimeSince,
     grandTotal,
     executeConfirm,

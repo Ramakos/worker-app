@@ -1,23 +1,19 @@
 import React from 'react';
-import { ChevronDown, Plus } from 'lucide-react';
-import { MenuCategory, MenuItem } from './types';
+import { ChevronDown } from 'lucide-react';
+import { MenuCategory } from './types';
 
 interface MenuCategoryCardProps {
   category: MenuCategory;
   isExpanded: boolean;
   searchQuery: string;
-  recentlyPickedId: string | null;
   onToggle: (id: string) => void;
-  onPickItem: (item: MenuItem) => void;
 }
 
 export const MenuCategoryCard: React.FC<MenuCategoryCardProps> = ({
   category,
   isExpanded,
   searchQuery,
-  recentlyPickedId,
   onToggle,
-  onPickItem,
 }) => {
   const itemCount = category.items.length;
   if (itemCount === 0) return null;
@@ -55,29 +51,30 @@ export const MenuCategoryCard: React.FC<MenuCategoryCardProps> = ({
 
       {/* Items */}
       {isExpanded && (
-        <div className="border-t border-border/50 bg-muted/30">
+        <div className="border-t border-border/50 bg-muted/30 divide-y divide-border/40">
           {category.items.map((item, idx) => {
-            const wasRecentlyPicked = recentlyPickedId === item.id;
-
             return (
               <div
                 key={item.id}
-                className={`flex items-center justify-between px-4 py-3 border-b border-border/50 last:border-b-0 transition-all ${
-                  wasRecentlyPicked ? 'bg-secondary scale-[1.02]' : 'hover:bg-card'
-                }`}
+                className="flex items-center justify-between px-4 py-3 hover:bg-card/70 transition-colors"
                 style={{ animationDelay: `${idx * 20}ms` }}
               >
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-foreground text-sm truncate">{item.name}</div>
-                  <div className="text-xs text-muted-foreground">GHS {item.price.toFixed(2)}</div>
+                <div className="flex-1 min-w-0 pr-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-foreground text-sm truncate">{item.name}</span>
+                    {!item.is_available && (
+                      <span className="badge badge-destructive text-[10px] px-1.5 py-0.2">
+                        86'd / Out
+                      </span>
+                    )}
+                  </div>
+                  {item.description && (
+                    <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{item.description}</div>
+                  )}
                 </div>
-                <button
-                  onClick={() => onPickItem(item)}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-secondary hover:bg-accent text-secondary-foreground rounded-xl text-xs font-medium transition-all haptic"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add</span>
-                </button>
+                <div className="text-sm font-bold text-primary font-mono shrink-0">
+                  GHS {item.price.toFixed(2)}
+                </div>
               </div>
             );
           })}

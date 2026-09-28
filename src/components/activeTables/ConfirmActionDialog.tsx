@@ -9,21 +9,6 @@ interface ConfirmActionDialogProps {
 }
 
 const confirmConfig: Record<Exclude<ConfirmAction, null>, { title: string; message: string; confirmLabel: string }> = {
-  undo: {
-    title: 'Undo Last Item?',
-    message: 'This will remove the most recently added item from this table.',
-    confirmLabel: 'Undo',
-  },
-  clear: {
-    title: 'Clear All Items?',
-    message: 'This will remove all items from this table. You will need to re-add them.',
-    confirmLabel: 'Clear All',
-  },
-  clearAll: {
-    title: 'Clear All Tables?',
-    message: 'This will remove every table and all their items. This cannot be undone.',
-    confirmLabel: 'Clear All Tables',
-  },
   deleteTable: {
     title: 'Remove This Table?',
     message: 'This will permanently remove the table and all its items.',

@@ -34,7 +34,6 @@ export const Dashboard = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { currentWorker, signOut } = useAuth();
   const worker = currentWorker || DEV_WORKER;
-  const [tablesKey, setTablesKey] = useState(0);
 
   const { allOrders, assignOrder, updateOrderStatus } = useOrders(worker.id);
   const activeOrdersCount = allOrders.filter(o => o.status !== 'served').length;
@@ -127,11 +126,6 @@ export const Dashboard = () => {
     { id: 'tables' as Tab, label: 'Tables', icon: Table2 },
     { id: 'menu' as Tab, label: 'Menu Catalog', icon: UtensilsCrossed },
   ];
-
-  const handleAddFromMenu = (_targetTableId?: string) => {
-    setTablesKey((k) => k + 1);
-    setActiveTab('tables');
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/40">
@@ -240,7 +234,7 @@ export const Dashboard = () => {
         )}
         {activeTab === 'tables' && (
           <div className="fade-in">
-            <ActiveTables key={tablesKey} />
+            <ActiveTables />
           </div>
         )}
         {activeTab === 'activity' && (
@@ -256,7 +250,7 @@ export const Dashboard = () => {
         )}
         {activeTab === 'menu' && (
           <div className="fade-in">
-            <MenuReference onAddToTable={handleAddFromMenu} />
+            <MenuReference />
           </div>
         )}
         {activeTab === 'sales' && (

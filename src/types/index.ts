@@ -22,18 +22,23 @@ export interface WorkerShift {
 
 export interface Order {
   id: number;
+  order_number?: number;
   status: 'pending' | 'confirmed' | 'in_kitchen' | 'ready' | 'served' | 'delivered' | 'cancelled' | 'held';
   order_type: string;
   items: OrderItem[];
   created_at: string;
   ready_at: string | null;
   customer_name: string | null;
+  customer_phone?: string | null;
+  delivery_address?: string | null;
   payment_method: string | null;
   total_paid: number | null;
   created_by: string | null;
   claimed_by: string | null;
   claimed_at: string | null;
   mode: string | null;
+  rejection_reason?: string | null;
+  notes?: string | null;
 }
 
 export interface WorkerOrderLog {

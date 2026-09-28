@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { MenuCategory, MenuItem, PickedItem } from './types';
+import { MenuCategory, MenuItem } from './types';
 
 const MENU_CACHE_KEY = 'menuReferenceCache';
-const PICKED_ITEMS_KEY = 'pickedMenuItems';
 
 // Standard fallback menu prices from the Ramakos restaurant operations catalog
 const FALLBACK_MENU_PRICES: Record<string, number> = {
@@ -109,15 +108,13 @@ export const extractMenuItemPrice = (item: any): number => {
   return 0;
 };
 
-export const useMenuReference = (onAddToTable?: (item: { name: string; price: number }) => void) => {
+export const useMenuReference = () => {
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [lastSynced, setLastSynced] = useState<string | null>(null);
-  const [pickedItems, setPickedItems] = useState<PickedItem[]>([]);
   const [isOffline, setIsOffline] = useState(false);
-  const [recentlyPickedId, setRecentlyPickedId] = useState<string | null>(null);
 
   useEffect(() => {
     const cached = localStorage.getItem(MENU_CACHE_KEY);
@@ -137,20 +134,7 @@ export const useMenuReference = (onAddToTable?: (item: { name: string; price: nu
         // ignore invalid cache
       }
     }
-
-    const savedPicked = localStorage.getItem(PICKED_ITEMS_KEY);
-    if (savedPicked) {
-      try {
-        setPickedItems(JSON.parse(savedPicked));
-      } catch {
-        // ignore invalid cache
-      }
-    }
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem(PICKED_ITEMS_KEY, JSON.stringify(pickedItems));
-  }, [pickedItems]);
 
   const fetchMenu = async () => {
     if (!navigator.onLine) {
@@ -187,6 +171,7 @@ export const useMenuReference = (onAddToTable?: (item: { name: string; price: nu
           id: String(item.id),
           name: item.name,
           price: resolvedPrice,
+          description: item.description || undefined,
           is_available: isAvailable,
           category_id: catName,
         });
@@ -243,33 +228,6 @@ export const useMenuReference = (onAddToTable?: (item: { name: string; price: nu
     setExpandedCategories(newExpanded);
   };
 
-  const handlePickItem = (item: MenuItem) => {
-    const picked: PickedItem = {
-      id: `${item.id}-${Date.now()}`,
-      name: item.name,
-      price: item.price,
-      timestamp: Date.now(),
-    };
-    setPickedItems(prev => [...prev, picked]);
-    setRecentlyPickedId(item.id);
-    setTimeout(() => setRecentlyPickedId(null), 300);
-  };
-
-  const handleRemovePickedItem = (id: string) => {
-    setPickedItems(prev => prev.filter(i => i.id !== id));
-  };
-
-  const handleConfirmPickedItems = () => {
-    pickedItems.forEach(item => {
-      onAddToTable?.({ name: item.name, price: item.price });
-    });
-    setPickedItems([]);
-  };
-
-  const handleClearPickedItems = () => {
-    setPickedItems([]);
-  };
-
   const filteredCategories = searchQuery
     ? categories
         .map(cat => ({
@@ -281,8 +239,6 @@ export const useMenuReference = (onAddToTable?: (item: { name: string; price: nu
         .filter(cat => cat.items.length > 0)
     : categories;
 
-  const pickedTotal = pickedItems.reduce((sum, i) => sum + i.price, 0);
-
   return {
     categories: filteredCategories,
     expandedCategories,
@@ -290,15 +246,8 @@ export const useMenuReference = (onAddToTable?: (item: { name: string; price: nu
     setSearchQuery,
     isLoading,
     lastSynced,
-    pickedItems,
     isOffline,
-    recentlyPickedId,
     fetchMenu,
     toggleCategory,
-    handlePickItem,
-    handleRemovePickedItem,
-    handleConfirmPickedItems,
-    handleClearPickedItems,
-    pickedTotal,
   };
 };

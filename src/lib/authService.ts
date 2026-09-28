@@ -87,12 +87,41 @@ export const startOrResumeWorkerShift = async (
 ): Promise<{ worker: Worker; shift: any }> => {
   let shiftRecord: any = null;
   try {
-    const { data: existingShift } = await supabase
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+
+    // 1. Check for currently active shift
+    let { data: existingShift } = await supabase
       .from('worker_shifts')
       .select('*')
       .eq('user_id', worker.id)
       .eq('active', true)
       .maybeSingle();
+
+    // 2. If no active shift, check if worker already had a shift started today
+    if (!existingShift) {
+      const { data: todayShift } = await supabase
+        .from('worker_shifts')
+        .select('*')
+        .eq('user_id', worker.id)
+        .gte('started_at', todayMidnight.toISOString())
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (todayShift) {
+        // Resume today's shift
+        if (!todayShift.active) {
+          await supabase
+            .from('worker_shifts')
+            .update({ active: true, ended_at: null })
+            .eq('id', todayShift.id);
+          todayShift.active = true;
+          todayShift.ended_at = null;
+        }
+        existingShift = todayShift;
+      }
+    }
 
     if (!existingShift) {
       const { data: newShift, error: shiftError } = await supabase

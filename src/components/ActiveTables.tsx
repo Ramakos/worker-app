@@ -1,4 +1,4 @@
-import { Hash, Trash2 } from 'lucide-react';
+import { Hash } from 'lucide-react';
 import { useActiveTables } from './activeTables/useActiveTables';
 import { TableCard } from './activeTables/TableCard';
 import { TableSummaryModal } from './activeTables/TableSummaryModal';
@@ -36,6 +36,8 @@ export const ActiveTables = () => {
     handleRemoveItem,
     handleUpdateQuantity,
     handleUpdateNotes,
+    handleSettleTable,
+    isSettling,
     getTimeSince,
     grandTotal,
     executeConfirm,
@@ -110,14 +112,6 @@ export const ActiveTables = () => {
                   editNotes={editNotes}
                   setEditNotes={setEditNotes}
                   onSaveNotes={(notes) => handleUpdateNotes(table.id, notes)}
-                  onUndo={() => {
-                    setConfirmAction('undo');
-                    setConfirmTableId(table.id);
-                  }}
-                  onClear={() => {
-                    setConfirmAction('clear');
-                    setConfirmTableId(table.id);
-                  }}
                   onViewSummary={() => setSummaryTable(table)}
                   onDelete={() => {
                     setConfirmAction('deleteTable');
@@ -139,13 +133,6 @@ export const ActiveTables = () => {
                   GHS {grandTotal.toFixed(2)} total
                 </p>
               </div>
-              <button
-                onClick={() => setConfirmAction('clearAll')}
-                className="btn text-destructive bg-destructive/10 hover:bg-destructive/20 px-4 py-2.5 text-sm haptic"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Clear All</span>
-              </button>
             </div>
           </div>
         </>
@@ -156,6 +143,8 @@ export const ActiveTables = () => {
         summaryTable={summaryTable}
         onClose={() => setSummaryTable(null)}
         getTableTotal={getTableTotal}
+        onSettle={handleSettleTable}
+        isSettling={isSettling}
       />
 
       {/* Confirmation Modal */}
