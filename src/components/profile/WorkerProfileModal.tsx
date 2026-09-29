@@ -370,7 +370,7 @@ export const WorkerProfileModal: React.FC<WorkerProfileModalProps> = ({
                         value={pinInput}
                         onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
                         placeholder="••••"
-                        className="input h-10 w-full rounded-xl text-sm font-mono tracking-widest px-3"
+                        className="input h-10 w-full rounded-xl text-base font-mono tracking-widest px-3"
                         required
                       />
                     </div>
@@ -387,7 +387,7 @@ export const WorkerProfileModal: React.FC<WorkerProfileModalProps> = ({
                         value={pinConfirm}
                         onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, ''))}
                         placeholder="••••"
-                        className="input h-10 w-full rounded-xl text-sm font-mono tracking-widest px-3"
+                        className="input h-10 w-full rounded-xl text-base font-mono tracking-widest px-3"
                         required
                       />
                     </div>

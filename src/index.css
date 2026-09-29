@@ -123,6 +123,10 @@
   html {
     scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    touch-action: manipulation;
+    overscroll-behavior-y: none;
   }
 
   body {
@@ -131,6 +135,28 @@
     -moz-osx-font-smoothing: grayscale;
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
+    touch-action: manipulation;
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent mobile browser auto-zoom on input focus (iOS Safari & Android Chrome) */
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+    touch-action: manipulation;
+  }
+
+  /* Disable double-tap-to-zoom on buttons, cards, and interactive elements */
+  button,
+  a,
+  [role="button"],
+  .btn,
+  .card,
+  .haptic {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   * {
@@ -236,7 +262,7 @@
     padding: 0.75rem 1rem;
     border: 1px solid hsl(var(--input));
     border-radius: var(--radius-md);
-    font-size: 0.875rem;
+    font-size: 1rem;
     transition: all var(--transition-fast);
     background: hsl(var(--card));
     color: hsl(var(--foreground));

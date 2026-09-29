@@ -297,7 +297,7 @@ export const SignIn = () => {
                     type="text"
                     value={directEmail}
                     onChange={(e) => setDirectEmail(e.target.value)}
-                    className="input h-12 w-full text-sm rounded-xl px-3.5"
+                    className="input h-12 w-full text-base sm:text-sm rounded-xl px-3.5"
                     placeholder="e.g. counter or counter@ramakos.com"
                     required
                     autoFocus
@@ -313,7 +313,7 @@ export const SignIn = () => {
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="input h-12 pr-12 w-full text-sm rounded-xl px-3.5"
+                      className="input h-12 pr-12 w-full text-base sm:text-sm rounded-xl px-3.5"
                       placeholder="Enter account password"
                       required
                     />
@@ -522,7 +522,7 @@ export const SignIn = () => {
                           type={showPassword ? 'text' : 'password'}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="input h-12 pr-12 w-full text-sm rounded-xl px-3.5"
+                          className="input h-12 pr-12 w-full text-base sm:text-sm rounded-xl px-3.5"
                           placeholder="Enter account password"
                           required
                           autoFocus

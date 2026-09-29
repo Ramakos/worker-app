@@ -90,7 +90,7 @@ export const MySalesHeader: React.FC<MySalesHeaderProps> = ({
                 type="date"
                 value={customStart}
                 onChange={e => onCustomStartChange(e.target.value)}
-                className="input text-sm"
+                className="input text-base sm:text-sm"
               />
             </div>
             <div className="flex-1">
@@ -99,7 +99,7 @@ export const MySalesHeader: React.FC<MySalesHeaderProps> = ({
                 type="date"
                 value={customEnd}
                 onChange={e => onCustomEndChange(e.target.value)}
-                className="input text-sm"
+                className="input text-base sm:text-sm"
               />
             </div>
           </div>

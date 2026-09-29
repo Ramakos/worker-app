@@ -205,7 +205,7 @@ export const TableCard: React.FC<TableCardProps> = ({
                       }
                     }}
                     placeholder="Item name (type for suggestions...)"
-                    className="input w-full text-sm"
+                    className="input w-full text-base sm:text-sm"
                   />
 
                   {/* Typing Suggestions Popover */}
@@ -272,7 +272,7 @@ export const TableCard: React.FC<TableCardProps> = ({
                   placeholder="0.00"
                   step="0.01"
                   min="0"
-                  className="input w-24 text-sm text-right font-mono"
+                  className="input w-24 text-base sm:text-sm text-right font-mono"
                 />
               </div>
               <div className="flex items-center justify-between pt-1">
@@ -376,7 +376,7 @@ export const TableCard: React.FC<TableCardProps> = ({
                   onChange={(e) => setEditNotes(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && onSaveNotes(editNotes)}
                   placeholder="Add a note..."
-                  className="input flex-1 text-sm"
+                  className="input flex-1 text-base sm:text-sm"
                   autoFocus
                 />
                 <button

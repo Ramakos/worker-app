@@ -70,7 +70,7 @@ export const MenuReferenceHeader: React.FC<MenuReferenceHeaderProps> = ({
           value={searchQuery}
           onChange={e => onSearchQueryChange(e.target.value)}
           placeholder="Search items..."
-          className="input pl-10 bg-muted/50 border-border h-11 text-sm"
+          className="input pl-10 bg-muted/50 border-border h-11 text-base sm:text-sm"
         />
       </div>
     </div>

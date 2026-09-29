@@ -101,7 +101,7 @@ export const ActiveFloatCard: React.FC<ActiveFloatCardProps> = ({
             placeholder="Enter amount (GH₵)"
             step="0.01"
             min="0"
-            className="input flex-1 h-10 text-sm"
+            className="input flex-1 h-10 text-base sm:text-sm"
           />
           <button
             type="submit"
@@ -125,7 +125,7 @@ export const ActiveFloatCard: React.FC<ActiveFloatCardProps> = ({
             placeholder="Enter return amount (GH₵)"
             step="0.01"
             min="0"
-            className="input flex-1 h-10 text-sm"
+            className="input flex-1 h-10 text-base sm:text-sm"
           />
           <button
             type="submit"

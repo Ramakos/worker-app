@@ -54,7 +54,7 @@ export const ActiveTables = () => {
             onChange={(e) => setNewTable(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddTable()}
             placeholder="Add table (e.g. Table 4 or VIP 1)"
-            className="input flex-1 bg-muted/50 border-border h-11 text-sm px-3.5"
+            className="input flex-1 bg-muted/50 border-border h-11 text-base sm:text-sm px-3.5"
           />
           <button
             onClick={handleAddTable}

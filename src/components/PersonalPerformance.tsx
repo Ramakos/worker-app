@@ -152,7 +152,7 @@ export const PersonalPerformance = () => {
             placeholder="Tip amount"
             step="0.01"
             min="0"
-            className="input flex-1 text-sm"
+            className="input flex-1 text-base sm:text-sm"
           />
           <button
             onClick={handleAddTip}

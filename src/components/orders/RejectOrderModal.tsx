@@ -127,7 +127,7 @@ export const RejectOrderModal: React.FC<RejectOrderModalProps> = ({
                   ? 'Please explain why this order cannot be fulfilled...'
                   : 'Add any specific item names or details for the customer...'
               }
-              className="input w-full text-xs p-2.5 resize-none"
+              className="input w-full text-base sm:text-xs p-2.5 resize-none"
             />
           </div>
         </div>

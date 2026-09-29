@@ -160,7 +160,7 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
                   type="date"
                   value={localStart}
                   onChange={(e) => setLocalStart(e.target.value)}
-                  className="input h-10 w-full rounded-xl text-xs px-3"
+                  className="input h-10 w-full rounded-xl text-base sm:text-xs px-3"
                   required
                 />
               </div>
@@ -173,7 +173,7 @@ export const DateRangeFilter: React.FC<DateRangeFilterProps> = ({
                   type="date"
                   value={localEnd}
                   onChange={(e) => setLocalEnd(e.target.value)}
-                  className="input h-10 w-full rounded-xl text-xs px-3"
+                  className="input h-10 w-full rounded-xl text-base sm:text-xs px-3"
                   required
                 />
               </div>

@@ -8,10 +8,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.png', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'offline.html'],
+      includeAssets: ['favicon.png', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'offline.html', 'ramakos-logo-full.png'],
       manifest: {
         name: 'Ramakos Worker App',
-        short_name: 'Worker',
+        short_name: 'Ramakos Staff',
         description: 'Ramakos Catering Service — Worker Order & Shift Management',
         theme_color: '#CA251F',
         background_color: '#ffffff',
@@ -19,6 +19,7 @@ export default defineConfig({
         orientation: 'portrait',
         scope: '/',
         start_url: '/',
+        categories: ['business', 'productivity', 'food'],
         icons: [
           {
             src: '/icon-192.png',
@@ -35,6 +36,22 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable'
+          }
+        ],
+        shortcuts: [
+          {
+            name: 'New Order',
+            short_name: 'New Order',
+            description: 'Create a new table or takeaway order',
+            url: '/orders',
+            icons: [{ src: '/icon-192.png', sizes: '192x192' }]
+          },
+          {
+            name: 'My Shift',
+            short_name: 'Shift',
+            description: 'Check active shift status and pocket orders',
+            url: '/shift',
+            icons: [{ src: '/icon-192.png', sizes: '192x192' }]
           }
         ]
       },
