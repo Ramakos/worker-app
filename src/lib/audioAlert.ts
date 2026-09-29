@@ -1,4 +1,4 @@
-﻿// Web Audio API chime synthesizer for incoming order alerts
+// Web Audio API chime synthesizer for incoming order alerts
 // Uses native browser audio synthesis to guarantee zero network latency and 100% offline PWA support
 
 let audioCtx: AudioContext | null = null;
@@ -43,7 +43,9 @@ export function isAudioAlertEnabled(): boolean {
 export function setAudioAlertEnabled(enabled: boolean) {
   try {
     localStorage.setItem('worker_sound_alert_enabled', String(enabled));
-  } catch {}
+  } catch {
+    /* ignore storage error */
+  }
 }
 
 /**

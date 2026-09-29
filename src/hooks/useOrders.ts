@@ -13,7 +13,9 @@ export const useOrders = (workerId?: string) => {
       if (cached) {
         return JSON.parse(cached);
       }
-    } catch {}
+    } catch {
+      /* ignore cache parse error */
+    }
     return [];
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -22,7 +24,9 @@ export const useOrders = (workerId?: string) => {
     try {
       // Guard localStorage quota by caching the 50 most recent orders
       localStorage.setItem(ORDERS_CACHE_KEY, JSON.stringify(newOrders.slice(0, 50)));
-    } catch {}
+    } catch {
+      /* ignore quota errors */
+    }
   };
 
   const fetchOrders = async () => {

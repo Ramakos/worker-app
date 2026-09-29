@@ -59,7 +59,9 @@ export const fetchActiveWorkers = async (): Promise<Worker[]> => {
       if (activeWorkers.length > 0) {
         try {
           localStorage.setItem('cached_workers', JSON.stringify(activeWorkers));
-        } catch {}
+        } catch {
+          /* ignore cache error */
+        }
         return activeWorkers;
       }
     }
@@ -76,7 +78,9 @@ export const fetchActiveWorkers = async (): Promise<Worker[]> => {
         return parsed;
       }
     }
-  } catch {}
+  } catch {
+    /* ignore cache parse error */
+  }
 
   return [];
 };
@@ -136,8 +140,11 @@ export const startOrResumeWorkerShift = async (
 
       if (shiftError) {
         console.warn('Supabase shift creation blocked (likely RLS or offline), creating resilient local shift session:', shiftError);
+        const fallbackId = typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : '00000000-0000-0000-0000-' + Date.now().toString().slice(-12).padStart(12, '0');
         shiftRecord = {
-          id: `shift_${worker.id}_${Date.now()}`,
+          id: fallbackId,
           user_id: worker.id,
           started_at: new Date().toISOString(),
           active: true,
@@ -152,8 +159,11 @@ export const startOrResumeWorkerShift = async (
     }
   } catch (err) {
     console.warn('Network or RLS error checking shift, creating local shift record:', err);
+    const fallbackId = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : '00000000-0000-0000-0000-' + Date.now().toString().slice(-12).padStart(12, '0');
     shiftRecord = {
-      id: `shift_${worker.id}_${Date.now()}`,
+      id: fallbackId,
       user_id: worker.id,
       started_at: new Date().toISOString(),
       active: true,

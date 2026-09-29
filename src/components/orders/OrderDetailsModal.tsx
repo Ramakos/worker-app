@@ -6,13 +6,8 @@ import {
   Clock,
   User,
   CreditCard,
-  Ban,
-  CheckCircle,
   Copy,
   Check,
-  ChefHat,
-  Truck,
-  ExternalLink,
 } from 'lucide-react';
 import { Order } from '../../types';
 

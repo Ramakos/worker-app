@@ -39,9 +39,9 @@ export const DashboardSummary = ({ workerId }: DashboardSummaryProps) => {
           <Clock className="w-5 h-5" />
         </div>
         <div>
-          <h4 className="text-xs font-bold text-foreground">No Shift Clocked In</h4>
+          <h4 className="text-xs font-bold text-foreground">Shift Active</h4>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            Open your cash float below to start shift tracking and record transactions.
+            Shift in progress. Take your cash float below to record register change and start serving.
           </p>
         </div>
       </div>

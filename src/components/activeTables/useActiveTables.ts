@@ -358,5 +358,6 @@ export const useActiveTables = () => {
     getTimeSince,
     grandTotal,
     executeConfirm,
+    handleClearAll,
   };
 };

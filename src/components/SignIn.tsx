@@ -14,7 +14,6 @@ import {
   CreditCard,
   ChefHat,
   ShieldAlert,
-  Wifi,
   WifiOff,
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';

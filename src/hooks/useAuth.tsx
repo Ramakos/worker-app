@@ -48,7 +48,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-    } catch {}
+    } catch {
+      /* ignore cache parse error */
+    }
     return [];
   });
 
@@ -60,6 +62,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentWorker(DEV_WORKER);
     localStorage.setItem('currentWorker', JSON.stringify(DEV_WORKER));
     localStorage.setItem('devMode', 'true');
+
+    const devShift = {
+      id: '00000000-0000-0000-0000-000000000002',
+      user_id: DEV_WORKER.id,
+      started_at: new Date().toISOString(),
+      ended_at: null,
+      amount_taken_float: 0,
+      amount_returned_float: 0,
+      notes: 'Dev Mode Shift',
+      active: true,
+    };
+    localStorage.setItem(`active_shift_${DEV_WORKER.id}`, JSON.stringify(devShift));
+    localStorage.setItem(
+      'workerSession',
+      JSON.stringify({
+        worker: DEV_WORKER,
+        shift: devShift,
+        login_at: new Date().toISOString(),
+        last_active_at: new Date().toISOString(),
+      })
+    );
+
     recordWorkerActivity(DEV_WORKER.id, {
       type: 'shift_started',
       title: 'Dev Shift Started',
@@ -206,7 +230,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let capturedNetworkError: any = null;
     try {
       const pinToVerify = pin || workerIdOrPin;
-      let targetWorker = pin ? workers.find((w) => w.id === workerIdOrPin) : undefined;
+      const targetWorker = pin ? workers.find((w) => w.id === workerIdOrPin) : undefined;
 
       // 1. Try secure RPC lookup_profile_by_pin (Security Definer in Supabase)
       try {
@@ -338,7 +362,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (stored) {
         try {
           setCurrentWorker(JSON.parse(stored));
-        } catch {}
+        } catch {
+          /* ignore parse error */
+        }
       }
       return;
     }
@@ -363,7 +389,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, _session) => {
+    } = supabase.auth.onAuthStateChange((event) => {
       const stored = localStorage.getItem('currentWorker');
       if (stored) {
         try {
@@ -371,7 +397,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (worker.auth_method === 'pin') {
             return; // Ignore supabase auth state changes for PIN-authenticated workers
           }
-        } catch {}
+        } catch {
+          /* ignore parse error */
+        }
       }
 
       // Only wipe if user explicitly signed out

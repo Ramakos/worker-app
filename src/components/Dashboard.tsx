@@ -6,7 +6,7 @@ import ramakosLogo from '../assets/ramakos-logo.png';
 import { Worker, Order } from '../types';
 import { DashboardSummary } from './DashboardSummary';
 import { FloatManager } from './FloatManager';
-import { ActiveTables, TableLineItem } from './ActiveTables';
+import { ActiveTables } from './ActiveTables';
 import { MenuReference } from './MenuReference';
 import { PersonalPerformance } from './PersonalPerformance';
 import { MySales } from './MySales';

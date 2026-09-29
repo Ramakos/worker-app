@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { extractMenuItemPrice } from '../components/menuReference/useMenuReference';
 
@@ -33,7 +33,9 @@ export const useMenuSuggestions = () => {
         });
         if (items.length > 0) return items;
       }
-    } catch {}
+    } catch {
+      /* ignore cache parse error */
+    }
     return [];
   });
 

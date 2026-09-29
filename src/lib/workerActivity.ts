@@ -47,7 +47,9 @@ export const recordWorkerActivity = (
         const session = JSON.parse(storedSession);
         session.last_active_at = newItem.timestamp;
         localStorage.setItem('workerSession', JSON.stringify(session));
-      } catch {}
+      } catch {
+        /* ignore storage error */
+      }
     }
 
     // Broadcast update across the app in real-time
